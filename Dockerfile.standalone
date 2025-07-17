@@ -1,0 +1,128 @@
+# Standalone Dockerfile with MongoDB using supervisor (Debian-based)
+FROM node:18-bullseye
+
+# Install system dependencies including MongoDB
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    git \
+    curl \
+    bash \
+    wget \
+    gnupg \
+    supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install MongoDB
+RUN wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | apt-key add - \
+    && echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-7.0.list \
+    && apt-get update \
+    && apt-get install -y mongodb-org \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Create MongoDB directories
+RUN mkdir -p /data/db /var/log/mongodb /etc/supervisor/conf.d
+RUN chown -R mongodb:mongodb /data/db /var/log/mongodb
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Create workspace and logs directories
+RUN mkdir -p workspace/downloads logs
+
+# Create supervisor configuration
+RUN cat > /etc/supervisor/conf.d/supervisord.conf << 'EOF'
+[supervisord]
+nodaemon=true
+user=root
+logfile=/var/log/supervisor/supervisord.log
+pidfile=/var/run/supervisord.pid
+
+[program:mongodb]
+command=mongod --dbpath /data/db --bind_ip 0.0.0.0 --logpath /var/log/mongodb/mongod.log
+user=mongodb
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/supervisor/mongodb.err.log
+stdout_logfile=/var/log/supervisor/mongodb.out.log
+
+[program:api]
+command=npm run dev
+directory=/app
+user=root
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/supervisor/api.err.log
+stdout_logfile=/var/log/supervisor/api.out.log
+environment=NODE_ENV="development",MONGODB_URL="mongodb://localhost:27017/claw_api",PORT="8000"
+EOF
+
+# Create initialization script
+RUN cat > /app/init-db.sh << 'EOF'
+#!/bin/bash
+echo "Waiting for MongoDB to start..."
+sleep 15
+
+echo "Initializing database..."
+mongosh claw_api --eval "
+db.createCollection('users');
+db.createCollection('chats');
+db.users.createIndex({ email: 1 }, { unique: true });
+db.users.createIndex({ username: 1 });
+db.users.createIndex({ createdAt: 1 });
+db.chats.createIndex({ userId: 1 });
+db.chats.createIndex({ createdAt: 1 });
+db.chats.createIndex({ updatedAt: 1 });
+db.chats.createIndex({ 'messages.id': 1 });
+
+// Insert sample data
+db.users.insertOne({
+  username: 'demo_user',
+  email: 'demo@example.com',
+  createdAt: new Date(),
+  updatedAt: new Date()
+});
+
+print('Database initialized successfully!');
+"
+EOF
+
+RUN chmod +x /app/init-db.sh
+
+# Create startup script
+RUN cat > /app/start-standalone.sh << 'EOF'
+#!/bin/bash
+set -e
+
+echo "🚀 Starting Claw API with embedded MongoDB..."
+
+# Start supervisor (MongoDB + API)
+supervisord -c /etc/supervisor/conf.d/supervisord.conf &
+
+# Initialize database after MongoDB starts
+/app/init-db.sh &
+
+# Keep container running
+wait
+EOF
+
+RUN chmod +x /app/start-standalone.sh
+
+# Expose ports
+EXPOSE 8000 27017
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
+  CMD curl -f http://localhost:8000/health && mongosh --eval "db.adminCommand('ismaster')" || exit 1
+
+# Start services
+CMD ["/app/start-standalone.sh"]

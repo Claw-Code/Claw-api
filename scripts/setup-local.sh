@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Local setup script for Claw API with embedded MongoDB
+# Local setup script for v0-like API with embedded MongoDB
 
-echo "🚀 Setting up Claw API for local development..."
+echo "🚀 Setting up v0-like API for local development..."
 
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
@@ -51,7 +51,7 @@ fi
 cat > run-local.sh << 'EOF'
 #!/bin/bash
 
-echo "🚀 Starting Claw API in local development mode..."
+echo "🚀 Starting v0-like API in local development mode..."
 
 # Load environment variables
 if [ -f .env.local ]; then
@@ -107,7 +107,7 @@ chmod +x run-local.sh
 # Create stop script
 cat > stop-local.sh << 'EOF'
 #!/bin/bash
-echo "🛑 Stopping Claw API local development..."
+echo "🛑 Stopping v0-like API local development..."
 docker stop v0-local-dev 2>/dev/null || true
 docker rm v0-local-dev 2>/dev/null || true
 echo "✅ Stopped successfully!"

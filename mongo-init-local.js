@@ -1,4 +1,4 @@
-// MongoDB initialization script
+// MongoDB initialization script for local development
 const db = db.getSiblingDB("claw_api")
 
 // Create collections
@@ -15,12 +15,20 @@ db.chats.createIndex({ createdAt: 1 })
 db.chats.createIndex({ updatedAt: 1 })
 db.chats.createIndex({ "messages.id": 1 })
 
-// Insert sample data
-db.users.insertOne({
-  username: "demo_user",
-  email: "demo@example.com",
-  createdAt: new Date(),
-  updatedAt: new Date(),
-})
+// Insert sample data for local development
+db.users.insertMany([
+  {
+    username: "demo_user",
+    email: "demo@example.com",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    username: "test_gamer",
+    email: "gamer@example.com",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+])
 
-print("Claw API database initialized successfully!")
+print("Claw API local database initialized successfully!")

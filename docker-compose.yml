@@ -1,39 +1,51 @@
-version: '3.8'
-
+# Updated docker-compose with separate MongoDB service
 services:
-  # MongoDB database
+  # MongoDB database (pre-built image)
   mongodb:
     image: mongo:7.0
-    container_name: v0-mongodb
+    container_name: claw-mongodb
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password123
-      MONGO_INITDB_DATABASE: v0_clone
+      MONGO_INITDB_DATABASE: claw_api
     ports:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks:
-      - v0-network
+      - claw-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ismaster')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   # Redis for caching (optional)
   redis:
     image: redis:7-alpine
-    container_name: v0-redis
+    container_name: claw-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
-      - v0-network
+      - claw-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # Main API application
   api:
-    build: .
-    container_name: v0-api
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: claw-api
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -41,8 +53,8 @@ services:
       NODE_ENV: production
       PORT: 8000
       HOST: 0.0.0.0
-      MONGODB_URL: mongodb://admin:password123@mongodb:27017/v0_clone?authSource=admin
-      DB_NAME: v0_clone
+      MONGODB_URL: mongodb://admin:password123@mongodb:27017/claw_api?authSource=admin
+      DB_NAME: claw_api
       WORKSPACE_DIR: /app/workspace
       
       # LLM API Keys (set these in your environment)
@@ -56,35 +68,35 @@ services:
       - workspace_data:/app/workspace
       - ./logs:/app/logs
     depends_on:
-      - mongodb
-      - redis
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
-      - v0-network
+      - claw-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Ollama for local LLM (optional)
   ollama:
     image: ollama/ollama:latest
-    container_name: v0-ollama
+    container_name: claw-ollama
     restart: unless-stopped
     ports:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     networks:
-      - v0-network
-    # Uncomment if you have GPU support
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+      - claw-network
 
   # Nginx reverse proxy (optional)
   nginx:
     image: nginx:alpine
-    container_name: v0-nginx
+    container_name: claw-nginx
     restart: unless-stopped
     ports:
       - "80:80"
@@ -93,9 +105,10 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     networks:
-      - v0-network
+      - claw-network
 
 volumes:
   mongodb_data:
@@ -104,5 +117,5 @@ volumes:
   workspace_data:
 
 networks:
-  v0-network:
+  claw-network:
     driver: bridge

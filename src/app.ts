@@ -30,7 +30,7 @@ async function registerPlugins() {
     swagger: {
       info: {
         title: "Claw API",
-        description: "AI-powered code generation API similar to v0.dev",
+        description: "AI-powered code generation API for gaming and development",
         version: "1.0.0",
       },
       host: "localhost:8000",

@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Local testing script for Claw API
+# Local testing script for Claw API with pre-built MongoDB
 
-echo "🧪 Testing Claw API locally..."
+echo "🧪 Testing Claw API locally with pre-built MongoDB..."
 
 API_URL="http://localhost:8000"
 
@@ -13,6 +13,7 @@ if [[ $health_response == *"ok"* ]]; then
     echo "✅ Health check passed"
 else
     echo "❌ Health check failed"
+    echo "Response: $health_response"
     exit 1
 fi
 
@@ -64,24 +65,65 @@ if [ ! -z "$chat_id" ]; then
     fi
 fi
 
-# Test MongoDB connection
+# Test MongoDB connection (try different container names)
 echo "🗄️  Testing MongoDB connection..."
-mongo_test=$(docker exec v0-local-dev mongo --eval "db.adminCommand('ismaster')" 2>/dev/null)
-if [[ $mongo_test == *"ismaster"* ]]; then
-    echo "✅ MongoDB connection passed"
-else
-    echo "❌ MongoDB connection failed"
+mongo_containers=("claw-mongodb" "claw-mongodb-local" "claw-standalone")
+mongo_connected=false
+
+for container in "${mongo_containers[@]}"; do
+    if docker ps | grep -q $container; then
+        echo "Found MongoDB container: $container"
+        mongo_test=$(docker exec $container mongosh --eval "db.adminCommand('ismaster')" 2>/dev/null)
+        if [[ $mongo_test == *"ismaster"* ]]; then
+            echo "✅ MongoDB connection passed ($container)"
+            mongo_connected=true
+            
+            # Show database contents
+            echo "📊 Database contents:"
+            docker exec $container mongosh claw_api --eval "
+                print('Users count: ' + db.users.countDocuments());
+                print('Chats count: ' + db.chats.countDocuments());
+                print('Sample user: '); 
+                printjson(db.users.findOne());
+            " 2>/dev/null
+            break
+        fi
+    fi
+done
+
+if [ "$mongo_connected" = false ]; then
+    echo "❌ MongoDB connection failed - no accessible container found"
 fi
 
-# Show database contents
-echo "📊 Database contents:"
-docker exec v0-local-dev mongo v0_clone --eval "
-    print('Users count: ' + db.users.count());
-    print('Chats count: ' + db.chats.count());
-    print('Sample user: '); 
-    printjson(db.users.findOne());
-" 2>/dev/null
+# Test Docker Compose services
+echo ""
+echo "🐳 Checking Docker services..."
+if command -v docker-compose &> /dev/null; then
+    compose_cmd="docker-compose"
+else
+    compose_cmd="docker compose"
+fi
+
+# Check which compose file is running
+if docker ps | grep -q claw-mongodb-local; then
+    echo "📋 Local development services:"
+    $compose_cmd -f docker-compose.local.yml ps
+elif docker ps | grep -q claw-standalone; then
+    echo "📋 Standalone service:"
+    $compose_cmd -f docker-compose.standalone.yml ps
+elif docker ps | grep -q claw-mongodb; then
+    echo "📋 Production-like services:"
+    $compose_cmd ps
+else
+    echo "⚠️  No recognized Claw API services found"
+fi
 
 echo ""
-echo "✅ Local testing complete!"
+echo "✅ Claw API local testing complete!"
 echo "🌐 API Documentation: $API_URL/docs"
+echo ""
+echo "🔧 Troubleshooting commands:"
+echo "- View API logs: docker logs claw-local-dev -f"
+echo "- View MongoDB logs: docker logs claw-mongodb-local -f"
+echo "- MongoDB shell: docker exec -it claw-mongodb-local mongosh claw_api"
+echo "- Restart services: $compose_cmd restart"

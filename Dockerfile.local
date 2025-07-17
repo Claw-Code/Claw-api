@@ -1,5 +1,7 @@
-FROM ubuntu:22.04
+# Local development Dockerfile - Single container with wait-for-it script
+FROM node:18-bullseye
 
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -7,16 +9,16 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     bash \
-    gnupg \
-    supervisor \
-    mongodb-org-tools \
- && rm -rf /var/lib/apt/lists/*
+    wget \
+    netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Create MongoDB directories
-RUN mkdir -p /data/db /var/log/mongodb /etc/supervisor/conf.d
-RUN chown -R mongodb:mongodb /data/db /var/log/mongodb
+# Install wait-for-it script
+RUN wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh \
+    && chmod +x wait-for-it.sh \
+    && mv wait-for-it.sh /usr/local/bin/
 
 # Copy package files
 COPY package*.json ./
@@ -30,90 +32,32 @@ COPY . .
 # Create workspace and logs directories
 RUN mkdir -p workspace/downloads logs
 
-# Create supervisor configuration
-RUN cat > /etc/supervisor/conf.d/supervisord.conf << 'EOF'
-[supervisord]
-nodaemon=true
-user=root
-logfile=/var/log/supervisor/supervisord.log
-pidfile=/var/run/supervisord.pid
-
-[program:mongodb]
-command=mongod --dbpath /data/db --bind_ip 0.0.0.0 --logpath /var/log/mongodb/mongod.log
-user=mongodb
-autostart=true
-autorestart=true
-stderr_logfile=/var/log/supervisor/mongodb.err.log
-stdout_logfile=/var/log/supervisor/mongodb.out.log
-
-[program:api]
-command=npm run dev
-directory=/app
-user=root
-autostart=true
-autorestart=true
-stderr_logfile=/var/log/supervisor/api.err.log
-stdout_logfile=/var/log/supervisor/api.out.log
-environment=NODE_ENV="development",MONGODB_URL="mongodb://localhost:27017/v0_clone",PORT="8000"
-EOF
-
-# Create initialization script
-RUN cat > /app/init-db.sh << 'EOF'
-#!/bin/bash
-echo "Waiting for MongoDB to start..."
-sleep 10
-
-echo "Initializing database..."
-mongo v0_clone --eval "
-db.createCollection('users');
-db.createCollection('chats');
-db.users.createIndex({ email: 1 }, { unique: true });
-db.users.createIndex({ username: 1 });
-db.users.createIndex({ createdAt: 1 });
-db.chats.createIndex({ userId: 1 });
-db.chats.createIndex({ createdAt: 1 });
-db.chats.createIndex({ updatedAt: 1 });
-db.chats.createIndex({ 'messages.id': 1 });
-
-// Insert sample data
-db.users.insertOne({
-  username: 'demo_user',
-  email: 'demo@example.com',
-  createdAt: new Date(),
-  updatedAt: new Date()
-});
-
-print('Database initialized successfully!');
-"
-EOF
-
-RUN chmod +x /app/init-db.sh
-
-# Create startup script
+# Create startup script that waits for external MongoDB
 RUN cat > /app/start-local.sh << 'EOF'
 #!/bin/bash
 set -e
 
-echo "🚀 Starting Claw API with embedded MongoDB..."
+echo "🚀 Starting Claw API (waiting for external MongoDB)..."
 
-# Start supervisor (MongoDB + API)
-supervisord -c /etc/supervisor/conf.d/supervisord.conf &
+# Wait for MongoDB to be ready
+echo "⏳ Waiting for MongoDB at ${MONGODB_HOST:-mongodb}:${MONGODB_PORT:-27017}..."
+wait-for-it.sh ${MONGODB_HOST:-mongodb}:${MONGODB_PORT:-27017} --timeout=60 --strict
 
-# Initialize database after MongoDB starts
-/app/init-db.sh &
+echo "✅ MongoDB is ready!"
 
-# Keep container running
-wait
+# Start the application
+echo "🌟 Starting API server..."
+npm run dev
 EOF
 
 RUN chmod +x /app/start-local.sh
 
-# Expose ports
-EXPOSE 8000 27017
+# Expose port
+EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:8000/health && mongo --eval "db.adminCommand('ismaster')" || exit 1
+  CMD curl -f http://localhost:8000/health || exit 1
 
 # Start services
 CMD ["/app/start-local.sh"]

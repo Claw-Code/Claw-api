@@ -1,47 +1,76 @@
-version: '3.8'
-
+# Local development compose with separate MongoDB
 services:
-  # All-in-one local development container
-  v0-local:
+  # MongoDB for local development
+  mongodb-local:
+    image: mongo:7.0
+    container_name: claw-mongodb-local
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: claw_api
+    volumes:
+      - mongodb_local_data:/data/db
+      - ./mongo-init-local.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - claw-local-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ismaster')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Claw API local development
+  claw-local:
     build:
       context: .
       dockerfile: Dockerfile.local
-    container_name: v0-local-dev
+    container_name: claw-local-dev
     restart: unless-stopped
     ports:
-      - "8000:8000"   # API
-      - "27017:27017" # MongoDB (for external access)
+      - "8000:8000"
     environment:
       NODE_ENV: development
       PORT: 8000
       HOST: 0.0.0.0
-      MONGODB_URL: mongodb://localhost:27017/v0_clone
-      DB_NAME: v0_clone
+      MONGODB_URL: mongodb://mongodb-local:27017/claw_api
+      MONGODB_HOST: mongodb-local
+      MONGODB_PORT: 27017
+      DB_NAME: claw_api
       WORKSPACE_DIR: /app/workspace
       
       # LLM API Keys (set these in your .env file)
       HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
-      OLLAMA_URL: http://localhost:11434
+      OLLAMA_URL: http://ollama-local:11434
     volumes:
       - ./src:/app/src:ro  # Mount source for hot reload
       - ./logs:/app/logs
       - workspace_data:/app/workspace
-      - mongodb_local_data:/data/db
+    depends_on:
+      mongodb-local:
+        condition: service_healthy
     networks:
-      - v0-local-network
+      - claw-local-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Optional: Ollama for local LLM
   ollama-local:
     image: ollama/ollama:latest
-    container_name: v0-ollama-local
+    container_name: claw-ollama-local
     restart: unless-stopped
     ports:
       - "11434:11434"
     volumes:
       - ollama_local_data:/root/.ollama
     networks:
-      - v0-local-network
+      - claw-local-network
 
 volumes:
   workspace_data:
@@ -49,5 +78,5 @@ volumes:
   ollama_local_data:
 
 networks:
-  v0-local-network:
+  claw-local-network:
     driver: bridge
