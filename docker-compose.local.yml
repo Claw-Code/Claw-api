@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
 # Local development compose with separate MongoDB
 services:
   # MongoDB for local development
@@ -32,88 +30,24 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
-=======
-version: '3.8'
-
-=======
-# Local development compose with separate MongoDB
->>>>>>> 9ce6ccf (Updated dockerScript)
-services:
-  # MongoDB for local development
-  mongodb-local:
-    image: mongo:7.0
-    container_name: claw-mongodb-local
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_DATABASE: claw_api
-    volumes:
-      - mongodb_local_data:/data/db
-      - ./mongo-init-local.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
-    networks:
-      - claw-local-network
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ismaster')"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
-  # Claw API local development
-  claw-local:
-    build:
-      context: .
-      dockerfile: Dockerfile.local
-    container_name: claw-local-dev
-    restart: unless-stopped
-    ports:
-<<<<<<< HEAD
-      - "8000:8000"   # API
-      - "27017:27017" # MongoDB (for external access)
->>>>>>> d07d2a6 (Init API)
-=======
-      - "8000:8000"
->>>>>>> 9ce6ccf (Updated dockerScript)
     environment:
       NODE_ENV: development
       PORT: 8000
       HOST: 0.0.0.0
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 9ce6ccf (Updated dockerScript)
       MONGODB_URL: mongodb://mongodb-local:27017/claw_api
       MONGODB_HOST: mongodb-local
       MONGODB_PORT: 27017
       DB_NAME: claw_api
-<<<<<<< HEAD
-=======
-      MONGODB_URL: mongodb://localhost:27017/v0_clone
-      DB_NAME: v0_clone
->>>>>>> d07d2a6 (Init API)
-=======
->>>>>>> 9ce6ccf (Updated dockerScript)
       WORKSPACE_DIR: /app/workspace
       
       # LLM API Keys (set these in your .env file)
       HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
-<<<<<<< HEAD
-<<<<<<< HEAD
       OLLAMA_URL: http://ollama-local:11434
-=======
-      OLLAMA_URL: http://localhost:11434
->>>>>>> d07d2a6 (Init API)
-=======
-      OLLAMA_URL: http://ollama-local:11434
->>>>>>> 9ce6ccf (Updated dockerScript)
     volumes:
       - ./src:/app/src:ro  # Mount source for hot reload
       - ./logs:/app/logs
       - workspace_data:/app/workspace
-<<<<<<< HEAD
-<<<<<<< HEAD
     depends_on:
       mongodb-local:
         condition: service_healthy
@@ -125,52 +59,18 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-=======
-      - mongodb_local_data:/data/db
-    networks:
-      - v0-local-network
->>>>>>> d07d2a6 (Init API)
-=======
-    depends_on:
-      mongodb-local:
-        condition: service_healthy
-    networks:
-      - claw-local-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
->>>>>>> 9ce6ccf (Updated dockerScript)
 
   # Optional: Ollama for local LLM
   ollama-local:
     image: ollama/ollama:latest
-<<<<<<< HEAD
-<<<<<<< HEAD
     container_name: claw-ollama-local
-=======
-    container_name: v0-ollama-local
->>>>>>> d07d2a6 (Init API)
-=======
-    container_name: claw-ollama-local
->>>>>>> 9ce6ccf (Updated dockerScript)
     restart: unless-stopped
     ports:
       - "11434:11434"
     volumes:
       - ollama_local_data:/root/.ollama
     networks:
-<<<<<<< HEAD
-<<<<<<< HEAD
       - claw-local-network
-=======
-      - v0-local-network
->>>>>>> d07d2a6 (Init API)
-=======
-      - claw-local-network
->>>>>>> 9ce6ccf (Updated dockerScript)
 
 volumes:
   workspace_data:
@@ -178,13 +78,5 @@ volumes:
   ollama_local_data:
 
 networks:
-<<<<<<< HEAD
-<<<<<<< HEAD
   claw-local-network:
-=======
-  v0-local-network:
->>>>>>> d07d2a6 (Init API)
-=======
-  claw-local-network:
->>>>>>> 9ce6ccf (Updated dockerScript)
     driver: bridge

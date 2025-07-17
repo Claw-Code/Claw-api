@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-version: '3.8'
-
->>>>>>> d07d2a6 (Init API)
-=======
->>>>>>> 9ce6ccf (Updated dockerScript)
 services:
   mongodb:
     image: mongo:7.0
@@ -17,15 +9,7 @@ services:
     volumes:
       - mongodb_data:/data/db
     networks:
-<<<<<<< HEAD
-<<<<<<< HEAD
       - claw-network
-=======
-      - v0-network
->>>>>>> d07d2a6 (Init API)
-=======
-      - claw-network
->>>>>>> 9ce6ccf (Updated dockerScript)
     # Don't expose port in production
 
   redis:
@@ -34,27 +18,11 @@ services:
     volumes:
       - redis_data:/data
     networks:
-<<<<<<< HEAD
-<<<<<<< HEAD
       - claw-network
     # Don't expose port in production
 
   api:
     image: your-registry.com/claw-api:latest
-=======
-      - v0-network
-    # Don't expose port in production
-
-  api:
-    image: your-registry.com/Claw-api:latest
->>>>>>> d07d2a6 (Init API)
-=======
-      - claw-network
-    # Don't expose port in production
-
-  api:
-    image: your-registry.com/claw-api:latest
->>>>>>> 9ce6ccf (Updated dockerScript)
     restart: always
     environment:
       NODE_ENV: production
@@ -71,15 +39,7 @@ services:
       - mongodb
       - redis
     networks:
-<<<<<<< HEAD
-<<<<<<< HEAD
       - claw-network
-=======
-      - v0-network
->>>>>>> d07d2a6 (Init API)
-=======
-      - claw-network
->>>>>>> 9ce6ccf (Updated dockerScript)
     deploy:
       replicas: 2
       resources:
@@ -100,15 +60,7 @@ services:
     depends_on:
       - api
     networks:
-<<<<<<< HEAD
-<<<<<<< HEAD
       - claw-network
-=======
-      - v0-network
->>>>>>> d07d2a6 (Init API)
-=======
-      - claw-network
->>>>>>> 9ce6ccf (Updated dockerScript)
 
 volumes:
   mongodb_data:
@@ -116,13 +68,5 @@ volumes:
   workspace_data:
 
 networks:
-<<<<<<< HEAD
-<<<<<<< HEAD
   claw-network:
-=======
-  v0-network:
->>>>>>> d07d2a6 (Init API)
-=======
-  claw-network:
->>>>>>> 9ce6ccf (Updated dockerScript)
     driver: bridge

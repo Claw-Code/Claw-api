@@ -189,19 +189,8 @@ echo "- View logs: $compose_cmd logs -f"
 echo "- Stop services: $compose_cmd down"
 echo "- Restart: $compose_cmd restart"
 echo "- MongoDB shell: docker exec -it claw-mongodb-local mongosh claw_api"
-<<<<<<< HEAD
-<<<<<<< HEAD
 echo ""
 echo "🔧 Troubleshooting:"
 echo "- If bcrypt issues persist: ./scripts/fix-bcrypt.sh"
 echo "- If build fails: $compose_cmd build --no-cache"
 echo "- View container logs: docker logs [container_name] -f"
-=======
->>>>>>> 9ce6ccf (Updated dockerScript)
-=======
-echo ""
-echo "🔧 Troubleshooting:"
-echo "- If bcrypt issues persist: ./scripts/fix-bcrypt.sh"
-echo "- If build fails: $compose_cmd build --no-cache"
-echo "- View container logs: docker logs [container_name] -f"
->>>>>>> 19ce577 (convo fix and LLm tune)

@@ -9,11 +9,8 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     bash \
-<<<<<<< HEAD
-<<<<<<< HEAD
     wget \
     netcat-openbsd \
-    build-essential \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
@@ -39,80 +36,11 @@ COPY . .
 # Create workspace and logs directories
 RUN mkdir -p workspace/downloads logs
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 # Create startup script that waits for external MongoDB
-=======
-# Create supervisor configuration
-RUN cat > /etc/supervisor/conf.d/supervisord.conf << 'EOF'
-[supervisord]
-nodaemon=true
-user=root
-logfile=/var/log/supervisor/supervisord.log
-pidfile=/var/run/supervisord.pid
-
-[program:mongodb]
-command=mongod --dbpath /data/db --bind_ip 0.0.0.0 --logpath /var/log/mongodb/mongod.log
-user=mongodb
-autostart=true
-autorestart=true
-stderr_logfile=/var/log/supervisor/mongodb.err.log
-stdout_logfile=/var/log/supervisor/mongodb.out.log
-
-[program:api]
-command=npm run dev
-directory=/app
-user=root
-autostart=true
-autorestart=true
-stderr_logfile=/var/log/supervisor/api.err.log
-stdout_logfile=/var/log/supervisor/api.out.log
-environment=NODE_ENV="development",MONGODB_URL="mongodb://localhost:27017/v0_clone",PORT="8000"
-EOF
-
-# Create initialization script
-RUN cat > /app/init-db.sh << 'EOF'
-#!/bin/bash
-echo "Waiting for MongoDB to start..."
-sleep 10
-
-echo "Initializing database..."
-mongo v0_clone --eval "
-db.createCollection('users');
-db.createCollection('chats');
-db.users.createIndex({ email: 1 }, { unique: true });
-db.users.createIndex({ username: 1 });
-db.users.createIndex({ createdAt: 1 });
-db.chats.createIndex({ userId: 1 });
-db.chats.createIndex({ createdAt: 1 });
-db.chats.createIndex({ updatedAt: 1 });
-db.chats.createIndex({ 'messages.id': 1 });
-
-// Insert sample data
-db.users.insertOne({
-  username: 'demo_user',
-  email: 'demo@example.com',
-  createdAt: new Date(),
-  updatedAt: new Date()
-});
-
-print('Database initialized successfully!');
-"
-EOF
-
-RUN chmod +x /app/init-db.sh
-
-# Create startup script
->>>>>>> d07d2a6 (Init API)
-=======
-# Create startup script that waits for external MongoDB
->>>>>>> 9ce6ccf (Updated dockerScript)
 RUN cat > /app/start-local.sh << 'EOF'
 #!/bin/bash
 set -e
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 echo "🚀 Starting Claw API (waiting for external MongoDB)..."
 
 # Rebuild bcrypt to ensure compatibility
@@ -125,43 +53,19 @@ wait-for-it.sh ${MONGODB_HOST:-mongodb-local}:${MONGODB_PORT:-27017} --timeout=6
 
 echo "✅ MongoDB is ready!"
 
-<<<<<<< HEAD
-# Keep container running
-wait
->>>>>>> d07d2a6 (Init API)
-=======
 # Start the application
 echo "🌟 Starting API server..."
 npm run dev
->>>>>>> 9ce6ccf (Updated dockerScript)
 EOF
 
 RUN chmod +x /app/start-local.sh
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 # Expose port
 EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -f http://localhost:8000/health || exit 1
-=======
-# Expose ports
-EXPOSE 8000 27017
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:8000/health && mongo --eval "db.adminCommand('ismaster')" || exit 1
->>>>>>> d07d2a6 (Init API)
-=======
-# Expose port
-EXPOSE 8000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:8000/health || exit 1
->>>>>>> 9ce6ccf (Updated dockerScript)
 
 # Start services
 CMD ["/app/start-local.sh"]

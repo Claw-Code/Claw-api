@@ -49,33 +49,8 @@ while ! curl -s mongodb:27017 > /dev/null; do
   echo "Waiting for MongoDB..."
   sleep 2
 done
-<<<<<<< HEAD
 
 echo "✅ MongoDB is ready!"
-=======
-# Start MongoDB in background
-echo "📦 Starting MongoDB..."
-mongod --fork --logpath /var/log/mongodb/mongod.log --dbpath /data/db --bind_ip 0.0.0.0
-
-# Wait for MongoDB to start
-sleep 5
-
-# Initialize MongoDB
-echo "🔧 Initializing MongoDB..."
-mongo v0_clone --eval "
-db.createCollection('users');
-db.createCollection('chats');
-db.users.createIndex({ email: 1 }, { unique: true });
-db.users.createIndex({ username: 1 });
-db.chats.createIndex({ userId: 1 });
-db.chats.createIndex({ createdAt: 1 });
-print('Database initialized successfully!');
-"
->>>>>>> d07d2a6 (Init API)
-=======
-
-echo "✅ MongoDB is ready!"
->>>>>>> 9ce6ccf (Updated dockerScript)
 
 # Start the application
 echo "🌟 Starting API server..."

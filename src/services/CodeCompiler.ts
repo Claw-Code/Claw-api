@@ -26,7 +26,6 @@ export class CodeCompiler {
       // Write files
       await this.writeFiles(projectDir, generatedCode.files)
 
-<<<<<<< HEAD
       // Setup package.json for Phaser.js projects
       await this.setupPhaserPackageJson(projectDir, generatedCode.framework)
 
@@ -57,48 +56,13 @@ export class CodeCompiler {
         })
         buildLogs.push(buildOutput)
       }
-=======
-      // Setup package.json if not exists
-      await this.setupPackageJson(projectDir, generatedCode.framework)
-
-      // Install dependencies
-      const buildLogs: string[] = []
-      buildLogs.push("🎮 Setting up Phaser.js project...")
-
-      if (generatedCode.framework === "phaser.js") {
-        // For Phaser.js, we don't need npm install since it uses CDN
-        buildLogs.push("✅ Phaser.js project ready (using CDN)")
-
-        // Create a simple HTTP server for preview
-        await this.createSimpleServer(projectDir)
-        buildLogs.push("✅ HTTP server created for game preview")
-      } else {
-        // For other frameworks, install dependencies
-        const { stdout: installOutput } = await execAsync("npm install", {
-          cwd: projectDir,
-          timeout: 120000,
-        })
-        buildLogs.push(installOutput)
-
-      // Build the project
-      buildLogs.push("Building project...")
-      const { stdout: buildOutput } = await execAsync("npm run build", {
-        cwd: projectDir,
-        timeout: 180000,
-      })
-      buildLogs.push(buildOutput)
->>>>>>> d07d2a6 (Init API)
 
       // Start preview server
       const port = await this.getAvailablePort()
       const previewUrl = `http://localhost:${port}`
 
       // Start the server in background
-<<<<<<< HEAD
       this.startPreviewServer(projectDir, port, generatedCode.framework)
-=======
-      this.startPreviewServer(projectDir, port)
->>>>>>> d07d2a6 (Init API)
 
       return {
         id: projectId,
@@ -126,29 +90,19 @@ export class CodeCompiler {
     }
   }
 
-<<<<<<< HEAD
   private async setupPhaserPackageJson(projectDir: string, framework: string): Promise<void> {
-=======
-  private async setupPackageJson(projectDir: string, framework: string): Promise<void> {
->>>>>>> d07d2a6 (Init API)
     const packageJsonPath = join(projectDir, "package.json")
 
     try {
       await fs.access(packageJsonPath)
       return // package.json already exists
     } catch {
-<<<<<<< HEAD
       // Create package.json based on framework
       const packageJson = this.getPhaserPackageJson(framework)
-=======
-      // Create default package.json
-      const packageJson = this.getDefaultPackageJson(framework)
->>>>>>> d07d2a6 (Init API)
       await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2))
     }
   }
 
-<<<<<<< HEAD
   private getPhaserPackageJson(framework: string) {
     const basePackage = {
       name: "phaser-game-generated",
@@ -176,41 +130,20 @@ export class CodeCompiler {
           },
         }
 
-=======
-  private getDefaultPackageJson(framework: string) {
-    const basePackage = {
-      name: "phaser-game-generated",
-      version: "1.0.0",
-      private: true,
-      description: "Generated Phaser.js game",
-      main: "index.html",
-    }
-
-    switch (framework.toLowerCase()) {
->>>>>>> d07d2a6 (Init API)
       case "next.js":
       case "nextjs":
         return {
           ...basePackage,
-<<<<<<< HEAD
           scripts: {
             dev: "next dev",
             build: "next build",
             start: "next start",
             lint: "next lint",
           },
-=======
->>>>>>> d07d2a6 (Init API)
           dependencies: {
             next: "^14.0.0",
             react: "^18.0.0",
             "react-dom": "^18.0.0",
-<<<<<<< HEAD
-=======
-            three: "^0.158.0",
-            "@react-three/fiber": "^8.15.0",
-            "@react-three/drei": "^9.88.0",
->>>>>>> d07d2a6 (Init API)
             phaser: "^3.70.0",
           },
           devDependencies: {
@@ -235,12 +168,6 @@ export class CodeCompiler {
           dependencies: {
             react: "^18.0.0",
             "react-dom": "^18.0.0",
-<<<<<<< HEAD
-=======
-            three: "^0.158.0",
-            "@react-three/fiber": "^8.15.0",
-            "@react-three/drei": "^9.88.0",
->>>>>>> d07d2a6 (Init API)
             phaser: "^3.70.0",
           },
           devDependencies: {
@@ -257,7 +184,6 @@ export class CodeCompiler {
     }
   }
 
-<<<<<<< HEAD
   private async createSimpleServer(projectDir: string): Promise<void> {
     // Create a simple Node.js server for Phaser.js games
     const serverCode = `
@@ -314,8 +240,6 @@ server.listen(PORT, () => {
     await fs.writeFile(join(projectDir, "server.js"), serverCode)
   }
 
-=======
->>>>>>> d07d2a6 (Init API)
   private async getAvailablePort(): Promise<number> {
     const net = await import("net")
 
@@ -328,7 +252,6 @@ server.listen(PORT, () => {
     })
   }
 
-<<<<<<< HEAD
   private startPreviewServer(projectDir: string, port: number, framework: string): void {
     const { spawn } = require("child_process")
 
@@ -346,12 +269,6 @@ server.listen(PORT, () => {
     }
 
     const server = spawn(command, args, {
-=======
-  private startPreviewServer(projectDir: string, port: number): void {
-    const { spawn } = require("child_process")
-
-    const server = spawn("npm", ["start"], {
->>>>>>> d07d2a6 (Init API)
       cwd: projectDir,
       env: { ...process.env, PORT: port.toString() },
       detached: true,
@@ -381,7 +298,6 @@ server.listen(PORT, () => {
       archive.append(file.content, { name: file.path })
     }
 
-<<<<<<< HEAD
     // Add README for Phaser.js projects
     if (generatedCode.framework === "phaser.js") {
       const readme = `# Phaser.js Game
@@ -415,8 +331,6 @@ Enjoy your game!
       archive.append(readme, { name: "README.md" })
     }
 
-=======
->>>>>>> d07d2a6 (Init API)
     await archive.finalize()
 
     return `/api/download/${downloadId}`
