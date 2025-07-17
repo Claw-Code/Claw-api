@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Local development compose with separate MongoDB
 services:
   # MongoDB for local development
@@ -30,24 +31,49 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+=======
+version: '3.8'
+
+services:
+  # All-in-one local development container
+  v0-local:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    container_name: v0-local-dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"   # API
+      - "27017:27017" # MongoDB (for external access)
+>>>>>>> d07d2a6 (Init API)
     environment:
       NODE_ENV: development
       PORT: 8000
       HOST: 0.0.0.0
+<<<<<<< HEAD
       MONGODB_URL: mongodb://mongodb-local:27017/claw_api
       MONGODB_HOST: mongodb-local
       MONGODB_PORT: 27017
       DB_NAME: claw_api
+=======
+      MONGODB_URL: mongodb://localhost:27017/v0_clone
+      DB_NAME: v0_clone
+>>>>>>> d07d2a6 (Init API)
       WORKSPACE_DIR: /app/workspace
       
       # LLM API Keys (set these in your .env file)
       HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
+<<<<<<< HEAD
       OLLAMA_URL: http://ollama-local:11434
+=======
+      OLLAMA_URL: http://localhost:11434
+>>>>>>> d07d2a6 (Init API)
     volumes:
       - ./src:/app/src:ro  # Mount source for hot reload
       - ./logs:/app/logs
       - workspace_data:/app/workspace
+<<<<<<< HEAD
     depends_on:
       mongodb-local:
         condition: service_healthy
@@ -59,18 +85,31 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+=======
+      - mongodb_local_data:/data/db
+    networks:
+      - v0-local-network
+>>>>>>> d07d2a6 (Init API)
 
   # Optional: Ollama for local LLM
   ollama-local:
     image: ollama/ollama:latest
+<<<<<<< HEAD
     container_name: claw-ollama-local
+=======
+    container_name: v0-ollama-local
+>>>>>>> d07d2a6 (Init API)
     restart: unless-stopped
     ports:
       - "11434:11434"
     volumes:
       - ollama_local_data:/root/.ollama
     networks:
+<<<<<<< HEAD
       - claw-local-network
+=======
+      - v0-local-network
+>>>>>>> d07d2a6 (Init API)
 
 volumes:
   workspace_data:
@@ -78,5 +117,9 @@ volumes:
   ollama_local_data:
 
 networks:
+<<<<<<< HEAD
   claw-local-network:
+=======
+  v0-local-network:
+>>>>>>> d07d2a6 (Init API)
     driver: bridge

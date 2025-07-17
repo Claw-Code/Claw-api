@@ -1,5 +1,9 @@
 // MongoDB initialization script
+<<<<<<< HEAD
 const db = db.getSiblingDB(process.env.DB_NAME || "claw_api")
+=======
+const db = db.getSiblingDB("v0_clone")
+>>>>>>> d07d2a6 (Init API)
 
 // Create collections
 db.createCollection("users")
@@ -23,4 +27,8 @@ db.users.insertOne({
   updatedAt: new Date(),
 })
 
+<<<<<<< HEAD
 print("Claw API database initialized successfully!")
+=======
+print("Database initialized successfully!")
+>>>>>>> d07d2a6 (Init API)

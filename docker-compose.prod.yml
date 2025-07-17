@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+version: '3.8'
+
+>>>>>>> d07d2a6 (Init API)
 services:
   mongodb:
     image: mongo:7.0
@@ -9,7 +14,11 @@ services:
     volumes:
       - mongodb_data:/data/db
     networks:
+<<<<<<< HEAD
       - claw-network
+=======
+      - v0-network
+>>>>>>> d07d2a6 (Init API)
     # Don't expose port in production
 
   redis:
@@ -18,11 +27,19 @@ services:
     volumes:
       - redis_data:/data
     networks:
+<<<<<<< HEAD
       - claw-network
     # Don't expose port in production
 
   api:
     image: your-registry.com/claw-api:latest
+=======
+      - v0-network
+    # Don't expose port in production
+
+  api:
+    image: your-registry.com/Claw-api:latest
+>>>>>>> d07d2a6 (Init API)
     restart: always
     environment:
       NODE_ENV: production
@@ -39,7 +56,11 @@ services:
       - mongodb
       - redis
     networks:
+<<<<<<< HEAD
       - claw-network
+=======
+      - v0-network
+>>>>>>> d07d2a6 (Init API)
     deploy:
       replicas: 2
       resources:
@@ -60,7 +81,11 @@ services:
     depends_on:
       - api
     networks:
+<<<<<<< HEAD
       - claw-network
+=======
+      - v0-network
+>>>>>>> d07d2a6 (Init API)
 
 volumes:
   mongodb_data:
@@ -68,5 +93,9 @@ volumes:
   workspace_data:
 
 networks:
+<<<<<<< HEAD
   claw-network:
+=======
+  v0-network:
+>>>>>>> d07d2a6 (Init API)
     driver: bridge

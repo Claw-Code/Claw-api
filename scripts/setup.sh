@@ -1,8 +1,14 @@
 #!/bin/bash
 
+<<<<<<< HEAD
 # Setup script for v0-like API
 
 echo "🚀 Setting up v0-like API..."
+=======
+# Setup script for Claw API
+
+echo "🚀 Setting up Claw API..."
+>>>>>>> d07d2a6 (Init API)
 
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then

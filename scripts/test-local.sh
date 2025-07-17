@@ -1,8 +1,14 @@
 #!/bin/bash
 
+<<<<<<< HEAD
 # Local testing script for Claw API with pre-built MongoDB
 
 echo "🧪 Testing Claw API locally with pre-built MongoDB..."
+=======
+# Local testing script for Claw API
+
+echo "🧪 Testing Claw API locally..."
+>>>>>>> d07d2a6 (Init API)
 
 API_URL="http://localhost:8000"
 
@@ -13,7 +19,10 @@ if [[ $health_response == *"ok"* ]]; then
     echo "✅ Health check passed"
 else
     echo "❌ Health check failed"
+<<<<<<< HEAD
     echo "Response: $health_response"
+=======
+>>>>>>> d07d2a6 (Init API)
     exit 1
 fi
 
@@ -65,6 +74,7 @@ if [ ! -z "$chat_id" ]; then
     fi
 fi
 
+<<<<<<< HEAD
 # Test MongoDB connection (try different container names)
 echo "🗄️  Testing MongoDB connection..."
 mongo_containers=("claw-mongodb" "claw-mongodb-local" "claw-standalone")
@@ -127,3 +137,26 @@ echo "- View API logs: docker logs claw-local-dev -f"
 echo "- View MongoDB logs: docker logs claw-mongodb-local -f"
 echo "- MongoDB shell: docker exec -it claw-mongodb-local mongosh claw_api"
 echo "- Restart services: $compose_cmd restart"
+=======
+# Test MongoDB connection
+echo "🗄️  Testing MongoDB connection..."
+mongo_test=$(docker exec v0-local-dev mongo --eval "db.adminCommand('ismaster')" 2>/dev/null)
+if [[ $mongo_test == *"ismaster"* ]]; then
+    echo "✅ MongoDB connection passed"
+else
+    echo "❌ MongoDB connection failed"
+fi
+
+# Show database contents
+echo "📊 Database contents:"
+docker exec v0-local-dev mongo v0_clone --eval "
+    print('Users count: ' + db.users.count());
+    print('Chats count: ' + db.chats.count());
+    print('Sample user: '); 
+    printjson(db.users.findOne());
+" 2>/dev/null
+
+echo ""
+echo "✅ Local testing complete!"
+echo "🌐 API Documentation: $API_URL/docs"
+>>>>>>> d07d2a6 (Init API)

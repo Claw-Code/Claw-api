@@ -6,16 +6,37 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
+<<<<<<< HEAD
     "moduleResolution": "node",
+=======
+>>>>>>> d07d2a6 (Init API)
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "declaration": true,
+<<<<<<< HEAD
     "sourceMap": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
+=======
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+>>>>>>> d07d2a6 (Init API)
 }

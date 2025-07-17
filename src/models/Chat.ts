@@ -1,6 +1,10 @@
 import { type Collection, ObjectId } from "mongodb"
 import { database } from "../config/database"
+<<<<<<< HEAD
 import type { Chat, Message, ContentVersion, AssistantResponseVersion } from "../types"
+=======
+import type { Chat, Message } from "../types"
+>>>>>>> d07d2a6 (Init API)
 
 export class ChatModel {
   private collection: Collection<Chat>
@@ -9,6 +13,7 @@ export class ChatModel {
     this.collection = database.getDb().collection<Chat>("chats")
   }
 
+<<<<<<< HEAD
   async create(userId: string, title: string): Promise<Chat> {
     const initialMessage: Message = {
       _id: new ObjectId(),
@@ -22,11 +27,17 @@ export class ChatModel {
       userId: new ObjectId(userId),
       title,
       messages: [initialMessage],
+=======
+  async create(chatData: Omit<Chat, "_id" | "createdAt" | "updatedAt">): Promise<Chat> {
+    const chat: Chat = {
+      ...chatData,
+>>>>>>> d07d2a6 (Init API)
       createdAt: new Date(),
       updatedAt: new Date(),
     }
 
     const result = await this.collection.insertOne(chat)
+<<<<<<< HEAD
     return { ...chat, _id: result.insertedId }
   }
 
@@ -56,6 +67,24 @@ export class ChatModel {
       { _id: new ObjectId(chatId) },
       {
         $push: { messages: newMessage },
+=======
+    return { ...chat, _id: result.insertedId.toString() }
+  }
+
+  async findById(id: string): Promise<Chat | null> {
+    return await this.collection.findOne({ _id: new ObjectId(id) })
+  }
+
+  async findByUserId(userId: string): Promise<Chat[]> {
+    return await this.collection.find({ userId }).sort({ updatedAt: -1 }).toArray()
+  }
+
+  async addMessage(chatId: string, message: Message): Promise<Chat | null> {
+    const result = await this.collection.findOneAndUpdate(
+      { _id: new ObjectId(chatId) },
+      {
+        $push: { messages: message },
+>>>>>>> d07d2a6 (Init API)
         $set: { updatedAt: new Date() },
       },
       { returnDocument: "after" },
@@ -63,6 +92,7 @@ export class ChatModel {
     return result
   }
 
+<<<<<<< HEAD
   async editUserMessage(chatId: string, messageId: string, newText: string): Promise<Chat | null> {
     const messageToUpdate = await this.collection.findOne(
       { _id: new ObjectId(chatId), "messages._id": new ObjectId(messageId) },
@@ -115,6 +145,16 @@ export class ChatModel {
       {
         $push: { messages: assistantMessage },
         $set: { updatedAt: new Date() },
+=======
+  async updateMessage(chatId: string, messageId: string, updates: Partial<Message>): Promise<Chat | null> {
+    const result = await this.collection.findOneAndUpdate(
+      { _id: new ObjectId(chatId), "messages.id": messageId },
+      {
+        $set: {
+          "messages.$": { ...updates },
+          updatedAt: new Date(),
+        },
+>>>>>>> d07d2a6 (Init API)
       },
       { returnDocument: "after" },
     )

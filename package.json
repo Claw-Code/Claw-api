@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "name": "my-v0-project",
+=======
+  "name": "ClawAPI",
+>>>>>>> d07d2a6 (Init API)
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,8 +15,11 @@
   "dependencies": {
     "@aws-sdk/credential-providers": "latest",
     "@fastify/cors": "latest",
+<<<<<<< HEAD
     "@fastify/jwt": "latest",
     "@fastify/multipart": "latest",
+=======
+>>>>>>> d07d2a6 (Init API)
     "@fastify/swagger": "latest",
     "@fastify/swagger-ui": "latest",
     "@hookform/resolvers": "^3.9.1",
@@ -45,7 +52,10 @@
     "@radix-ui/react-toggle-group": "1.1.1",
     "@radix-ui/react-tooltip": "1.1.6",
     "autoprefixer": "^10.4.20",
+<<<<<<< HEAD
     "bcryptjs": "latest",
+=======
+>>>>>>> d07d2a6 (Init API)
     "child_process": "latest",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

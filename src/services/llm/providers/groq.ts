@@ -10,12 +10,16 @@ export class GroqProvider implements LLMProvider {
   }
 
   async generate(prompt: string, context?: any): Promise<string> {
+<<<<<<< HEAD
     if (!this.apiKey) {
       throw new Error("GROQ_API_KEY is not configured")
     }
 
     // Use Llama model for free tier
     const model = context?.model || "llama3-8b-8192"
+=======
+    const model = context?.model || "mixtral-8x7b-32768"
+>>>>>>> d07d2a6 (Init API)
 
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
@@ -28,20 +32,33 @@ export class GroqProvider implements LLMProvider {
         messages: [
           {
             role: "system",
+<<<<<<< HEAD
             content: this.getPhaserSystemPrompt(),
           },
           {
             role: "user",
             content: this.formatPromptForPhaser(prompt, context),
+=======
+            content:
+              "You are an expert game developer and coding assistant specializing in 2D and 3D game development with modern web technologies.",
+          },
+          {
+            role: "user",
+            content: this.formatPromptForGameDev(prompt),
+>>>>>>> d07d2a6 (Init API)
           },
         ],
         temperature: 0.7,
         max_tokens: 4000,
+<<<<<<< HEAD
         stream: false,
+=======
+>>>>>>> d07d2a6 (Init API)
       }),
     })
 
     if (!response.ok) {
+<<<<<<< HEAD
       const errorText = await response.text()
       throw new Error(`Groq API error (${response.status}): ${errorText}`)
     }
@@ -55,6 +72,16 @@ export class GroqProvider implements LLMProvider {
   async isAvailable(): Promise<boolean> {
     if (!this.apiKey) return false
 
+=======
+      throw new Error(`Groq API error: ${response.statusText}`)
+    }
+
+    const result = await response.json()
+    return result.choices[0]?.message?.content || ""
+  }
+
+  async isAvailable(): Promise<boolean> {
+>>>>>>> d07d2a6 (Init API)
     try {
       const response = await fetch(`${this.baseUrl}/models`, {
         headers: {
@@ -67,6 +94,7 @@ export class GroqProvider implements LLMProvider {
     }
   }
 
+<<<<<<< HEAD
   private getPhaserSystemPrompt(): string {
     return `You are Claw AI, a world-class expert game developer specializing exclusively in creating 2D games with Phaser.js.
 
@@ -426,5 +454,20 @@ const game = new Phaser.Game(config);`,
     }
 
     return files
+=======
+  private formatPromptForGameDev(prompt: string): string {
+    return `Generate game development code for: ${prompt}
+
+Requirements:
+- Use modern JavaScript/TypeScript
+- Focus on 2D/3D game development
+- Include proper game architecture patterns
+- Add performance optimizations
+- Use libraries like Three.js, Phaser, or Canvas API as appropriate
+- Include proper error handling and comments
+- Make code production-ready
+
+Please provide complete, runnable code with all necessary imports and setup.`
+>>>>>>> d07d2a6 (Init API)
   }
 }
