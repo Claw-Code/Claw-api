@@ -14,59 +14,68 @@ export interface AuthPayload {
   username: string
 }
 
-export interface Chat {
+// Renamed from Chat to Conversation for clarity
+export interface Conversation {
   _id?: ObjectId
   userId: ObjectId
   title: string // The first user prompt becomes the title
   messages: Message[]
-  contextDocuments?: Attachment[]
   createdAt: Date
   updatedAt: Date
 }
 
 export interface Message {
   _id: ObjectId
+  conversationId: ObjectId
   role: "user" | "assistant"
-  content: ContentVersion[] // Array to store edit history
+  content: MessageContent[]
   attachments?: Attachment[]
-  assistantResponse?: AssistantResponseVersion[] // For assistant messages, storing response versions
+  llmResponse?: LLMResponse[]
   createdAt: Date
   updatedAt: Date
 }
 
-export interface ContentVersion {
+export interface MessageContent {
   version: number
   text: string
+  editedAt: Date
 }
 
 export interface Attachment {
-  fileId: ObjectId
+  _id: ObjectId
+  messageId: ObjectId
   filename: string
+  originalName: string
   mimetype: string
   size: number
+  gridfsId: ObjectId
   uploadedAt: Date
+}
+
+export interface LLMResponse {
+  version: number
+  provider: string
+  textResponse: string
+  codeResponse?: CodeResponse
+  thinking?: string
+  status: "generating" | "completed" | "error"
+  error?: string
+  createdAt: Date
+}
+
+export interface CodeResponse {
+  files: CodeFile[]
+  framework: string
+  language: string
+  previewUrl?: string
+  downloadUrl?: string
 }
 
 export interface CodeFile {
   path: string
   content: string
-  type: "tsx" | "ts" | "css" | "json" | "html" | "md"
-}
-
-export interface CodeSnippet {
-  files: CodeFile[]
-  framework: string
-  previewUrl?: string
-  downloadUrl?: string
-  status: "generating" | "ready" | "error"
-}
-
-export interface AssistantResponseVersion {
-  version: number
-  text: string // Supports Markdown
-  code: CodeSnippet
-  thinking?: string // LLM's thought process
-  createdAt: Date
+  type: "tsx" | "ts" | "css" | "json" | "html" | "md" | "js" | "jsx"
+  language: string
 }
 
 export interface LLMProvider {
@@ -80,4 +89,12 @@ export interface PreviewEnvironment {
   url: string
   status: "building" | "ready" | "error"
   buildLogs: string[]
+}
+
+export interface GeneratedCode {
+  files: CodeFile[]
+  framework: string
+  language: string
+  previewUrl?: string
+  downloadUrl?: string
 }

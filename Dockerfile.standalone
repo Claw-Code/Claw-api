@@ -1,7 +1,7 @@
-# Standalone Dockerfile with MongoDB using supervisor (Debian-based)
+# Fixed standalone Dockerfile with proper bcrypt compilation
 FROM node:18-bullseye
 
-# Install system dependencies including MongoDB
+# Install system dependencies including MongoDB and build tools
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -12,26 +12,30 @@ RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
     supervisor \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Install MongoDB
-RUN wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | apt-key add - \
-    && echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-7.0.list \
-    && apt-get update \
-    && apt-get install -y mongodb-org \
-    && rm -rf /var/lib/apt/lists/*
+RUN wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | apt-key add - && \
+    echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-7.0.list && \
+    apt-get update && \
+    apt-get install -y mongodb-org && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Create MongoDB directories
-RUN mkdir -p /data/db /var/log/mongodb /etc/supervisor/conf.d
-RUN chown -R mongodb:mongodb /data/db /var/log/mongodb
+RUN mkdir -p /data/db /var/log/mongodb /etc/supervisor/conf.d && \
+    chown -R mongodb:mongodb /data/db /var/log/mongodb
 
-# Copy package files
+# Copy package files and .npmrc
 COPY package*.json ./
+COPY .npmrc ./
 
-# Install dependencies with legacy peer deps to avoid conflicts
-RUN npm install --legacy-peer-deps
+# Install dependencies and rebuild native modules
+RUN npm install --legacy-peer-deps && \
+    npm rebuild bcrypt --build-from-source && \
+    npm cache clean --force
 
 # Copy source code
 COPY . .
@@ -56,7 +60,7 @@ stderr_logfile=/var/log/supervisor/mongodb.err.log
 stdout_logfile=/var/log/supervisor/mongodb.out.log
 
 [program:api]
-command=npm run dev
+command=/app/start-api.sh
 directory=/app
 user=root
 autostart=true
@@ -65,6 +69,20 @@ stderr_logfile=/var/log/supervisor/api.err.log
 stdout_logfile=/var/log/supervisor/api.out.log
 environment=NODE_ENV="development",MONGODB_URL="mongodb://localhost:27017/claw_api",PORT="8000"
 EOF
+
+# Create API startup script
+RUN cat > /app/start-api.sh << 'EOF'
+#!/bin/bash
+set -e
+
+echo "🔧 Rebuilding native modules..."
+npm rebuild bcrypt --build-from-source
+
+echo "🌟 Starting API server..."
+npm run dev
+EOF
+
+RUN chmod +x /app/start-api.sh
 
 # Create initialization script
 RUN cat > /app/init-db.sh << 'EOF'

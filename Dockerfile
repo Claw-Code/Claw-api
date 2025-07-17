@@ -1,7 +1,7 @@
-# Use Node.js 18 on Debian (has better package support than Alpine)
+# Fixed production Dockerfile with proper native module handling
 FROM node:18-bullseye AS base
 
-# Install system dependencies for Debian
+# Install system dependencies for native module compilation
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -9,18 +9,22 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     bash \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Development stage (MongoDB will be separate container)
+# Development stage
 FROM base AS development
 
-# Copy package files
+# Copy package files and .npmrc
 COPY package*.json ./
+COPY .npmrc ./
 
-# Install all dependencies with legacy peer deps to avoid conflicts
-RUN npm install --legacy-peer-deps
+# Install dependencies and rebuild native modules
+RUN npm install --legacy-peer-deps && \
+    npm rebuild bcrypt --build-from-source && \
+    npm cache clean --force
 
 # Copy source code
 COPY . .
@@ -34,6 +38,10 @@ RUN cat > /app/start-dev.sh << 'EOF'
 set -e
 
 echo "🚀 Starting Claw API in development mode..."
+
+# Rebuild native modules to ensure compatibility
+echo "🔧 Rebuilding native modules..."
+npm rebuild bcrypt --build-from-source
 
 # Wait for MongoDB to be available
 echo "⏳ Waiting for MongoDB to be ready..."
@@ -59,11 +67,14 @@ RUN chmod +x /app/start-dev.sh
 # Production stage
 FROM base AS production
 
-# Copy package files
+# Copy package files and .npmrc
 COPY package*.json ./
+COPY .npmrc ./
 
-# Install only production dependencies with legacy peer deps
-RUN npm ci --only=production --legacy-peer-deps
+# Install only production dependencies and rebuild native modules
+RUN npm ci --only=production --legacy-peer-deps && \
+    npm rebuild bcrypt --build-from-source && \
+    npm cache clean --force
 
 # Copy built application
 COPY . .
@@ -75,14 +86,14 @@ RUN npm run build
 RUN mkdir -p workspace/downloads logs
 
 # Create non-root user
-RUN groupadd -g 1001 nodejs
-RUN useradd -r -u 1001 -g nodejs nextjs
+RUN groupadd -g 1001 nodejs && \
+    useradd -r -u 1001 -g nodejs clawuser
 
 # Change ownership
-RUN chown -R nextjs:nodejs workspace logs
+RUN chown -R clawuser:nodejs workspace logs
 
 # Switch to non-root user
-USER nextjs
+USER clawuser
 
 # Expose port
 EXPOSE 8000

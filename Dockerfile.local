@@ -1,7 +1,7 @@
-# Local development Dockerfile - Single container with wait-for-it script
+# Fixed local development Dockerfile with proper bcrypt compilation
 FROM node:18-bullseye
 
-# Install system dependencies
+# Install system dependencies including build tools for native modules
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     bash \
     wget \
     netcat-openbsd \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -20,11 +21,14 @@ RUN wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for
     && chmod +x wait-for-it.sh \
     && mv wait-for-it.sh /usr/local/bin/
 
-# Copy package files
+# Copy package files first
 COPY package*.json ./
+COPY .npmrc ./
 
-# Install dependencies with legacy peer deps to avoid conflicts
-RUN npm install --legacy-peer-deps
+# Install dependencies and rebuild native modules in container
+RUN npm install --legacy-peer-deps && \
+    npm rebuild bcrypt --build-from-source && \
+    npm cache clean --force
 
 # Copy source code
 COPY . .
@@ -39,9 +43,13 @@ set -e
 
 echo "🚀 Starting Claw API (waiting for external MongoDB)..."
 
+# Rebuild bcrypt to ensure compatibility
+echo "🔧 Rebuilding native modules..."
+npm rebuild bcrypt --build-from-source
+
 # Wait for MongoDB to be ready
-echo "⏳ Waiting for MongoDB at ${MONGODB_HOST:-mongodb}:${MONGODB_PORT:-27017}..."
-wait-for-it.sh ${MONGODB_HOST:-mongodb}:${MONGODB_PORT:-27017} --timeout=60 --strict
+echo "⏳ Waiting for MongoDB at ${MONGODB_HOST:-mongodb-local}:${MONGODB_PORT:-27017}..."
+wait-for-it.sh ${MONGODB_HOST:-mongodb-local}:${MONGODB_PORT:-27017} --timeout=60 --strict
 
 echo "✅ MongoDB is ready!"
 

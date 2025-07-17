@@ -26,33 +26,43 @@ export class CodeCompiler {
       // Write files
       await this.writeFiles(projectDir, generatedCode.files)
 
-      // Setup package.json if not exists
-      await this.setupPackageJson(projectDir, generatedCode.framework)
+      // Setup package.json for Phaser.js projects
+      await this.setupPhaserPackageJson(projectDir, generatedCode.framework)
 
       // Install dependencies
       const buildLogs: string[] = []
-      buildLogs.push("Installing dependencies...")
+      buildLogs.push("🎮 Setting up Phaser.js project...")
 
-      const { stdout: installOutput } = await execAsync("npm install", {
-        cwd: projectDir,
-        timeout: 120000,
-      })
-      buildLogs.push(installOutput)
+      if (generatedCode.framework === "phaser.js") {
+        // For Phaser.js, we don't need npm install since it uses CDN
+        buildLogs.push("✅ Phaser.js project ready (using CDN)")
 
-      // Build the project
-      buildLogs.push("Building project...")
-      const { stdout: buildOutput } = await execAsync("npm run build", {
-        cwd: projectDir,
-        timeout: 180000,
-      })
-      buildLogs.push(buildOutput)
+        // Create a simple HTTP server for preview
+        await this.createSimpleServer(projectDir)
+        buildLogs.push("✅ HTTP server created for game preview")
+      } else {
+        // For other frameworks, install dependencies
+        const { stdout: installOutput } = await execAsync("npm install", {
+          cwd: projectDir,
+          timeout: 120000,
+        })
+        buildLogs.push(installOutput)
+
+        // Build the project
+        buildLogs.push("🔨 Building project...")
+        const { stdout: buildOutput } = await execAsync("npm run build", {
+          cwd: projectDir,
+          timeout: 180000,
+        })
+        buildLogs.push(buildOutput)
+      }
 
       // Start preview server
       const port = await this.getAvailablePort()
       const previewUrl = `http://localhost:${port}`
 
       // Start the server in background
-      this.startPreviewServer(projectDir, port)
+      this.startPreviewServer(projectDir, port, generatedCode.framework)
 
       return {
         id: projectId,
@@ -80,44 +90,60 @@ export class CodeCompiler {
     }
   }
 
-  private async setupPackageJson(projectDir: string, framework: string): Promise<void> {
+  private async setupPhaserPackageJson(projectDir: string, framework: string): Promise<void> {
     const packageJsonPath = join(projectDir, "package.json")
 
     try {
       await fs.access(packageJsonPath)
       return // package.json already exists
     } catch {
-      // Create default package.json
-      const packageJson = this.getDefaultPackageJson(framework)
+      // Create package.json based on framework
+      const packageJson = this.getPhaserPackageJson(framework)
       await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2))
     }
   }
 
-  private getDefaultPackageJson(framework: string) {
+  private getPhaserPackageJson(framework: string) {
     const basePackage = {
-      name: "generated-project",
+      name: "phaser-game-generated",
       version: "1.0.0",
       private: true,
-      scripts: {
-        dev: "next dev",
-        build: "next build",
-        start: "next start",
-        lint: "next lint",
-      },
+      description: "Generated Phaser.js game",
+      main: "index.html",
     }
 
     switch (framework.toLowerCase()) {
+      case "phaser.js":
+      case "phaser":
+        return {
+          ...basePackage,
+          scripts: {
+            start: "http-server -p 3000 -c-1",
+            dev: "http-server -p 3000 -c-1",
+            build: "echo 'Phaser.js game ready for deployment'",
+          },
+          devDependencies: {
+            "http-server": "^14.1.1",
+          },
+          dependencies: {
+            // Phaser.js is loaded via CDN, no npm dependencies needed
+          },
+        }
+
       case "next.js":
       case "nextjs":
         return {
           ...basePackage,
+          scripts: {
+            dev: "next dev",
+            build: "next build",
+            start: "next start",
+            lint: "next lint",
+          },
           dependencies: {
             next: "^14.0.0",
             react: "^18.0.0",
             "react-dom": "^18.0.0",
-            three: "^0.158.0",
-            "@react-three/fiber": "^8.15.0",
-            "@react-three/drei": "^9.88.0",
             phaser: "^3.70.0",
           },
           devDependencies: {
@@ -142,9 +168,6 @@ export class CodeCompiler {
           dependencies: {
             react: "^18.0.0",
             "react-dom": "^18.0.0",
-            three: "^0.158.0",
-            "@react-three/fiber": "^8.15.0",
-            "@react-three/drei": "^9.88.0",
             phaser: "^3.70.0",
           },
           devDependencies: {
@@ -161,6 +184,62 @@ export class CodeCompiler {
     }
   }
 
+  private async createSimpleServer(projectDir: string): Promise<void> {
+    // Create a simple Node.js server for Phaser.js games
+    const serverCode = `
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+const server = http.createServer((req, res) => {
+  let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
+  
+  const extname = path.extname(filePath);
+  let contentType = 'text/html';
+  
+  switch (extname) {
+    case '.js':
+      contentType = 'text/javascript';
+      break;
+    case '.css':
+      contentType = 'text/css';
+      break;
+    case '.json':
+      contentType = 'application/json';
+      break;
+    case '.png':
+      contentType = 'image/png';
+      break;
+    case '.jpg':
+      contentType = 'image/jpg';
+      break;
+  }
+  
+  fs.readFile(filePath, (error, content) => {
+    if (error) {
+      if (error.code === 'ENOENT') {
+        res.writeHead(404);
+        res.end('File not found');
+      } else {
+        res.writeHead(500);
+        res.end('Server error: ' + error.code);
+      }
+    } else {
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(content, 'utf-8');
+    }
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log('Phaser.js game server running on port ' + PORT);
+});
+`
+
+    await fs.writeFile(join(projectDir, "server.js"), serverCode)
+  }
+
   private async getAvailablePort(): Promise<number> {
     const net = await import("net")
 
@@ -173,10 +252,23 @@ export class CodeCompiler {
     })
   }
 
-  private startPreviewServer(projectDir: string, port: number): void {
+  private startPreviewServer(projectDir: string, port: number, framework: string): void {
     const { spawn } = require("child_process")
 
-    const server = spawn("npm", ["start"], {
+    let command: string
+    let args: string[]
+
+    if (framework === "phaser.js") {
+      // Use the simple Node.js server for Phaser.js games
+      command = "node"
+      args = ["server.js"]
+    } else {
+      // Use npm start for other frameworks
+      command = "npm"
+      args = ["start"]
+    }
+
+    const server = spawn(command, args, {
       cwd: projectDir,
       env: { ...process.env, PORT: port.toString() },
       detached: true,
@@ -204,6 +296,39 @@ export class CodeCompiler {
     // Add files to archive
     for (const file of generatedCode.files) {
       archive.append(file.content, { name: file.path })
+    }
+
+    // Add README for Phaser.js projects
+    if (generatedCode.framework === "phaser.js") {
+      const readme = `# Phaser.js Game
+
+This is a generated Phaser.js game created by Claw API.
+
+## How to Run
+
+1. Open \`index.html\` in a web browser
+2. Or serve it with a local HTTP server:
+   \`\`\`bash
+   npx http-server -p 3000
+   \`\`\`
+
+## Game Features
+
+- Built with Phaser.js 3.x
+- Responsive design for mobile and desktop
+- Modern JavaScript (ES6+)
+- Optimized for performance
+- Cross-browser compatible
+
+## Customization
+
+- Edit \`game.js\` to modify game logic
+- Modify \`index.html\` for styling changes
+- Add assets to enhance the game experience
+
+Enjoy your game!
+`
+      archive.append(readme, { name: "README.md" })
     }
 
     await archive.finalize()
