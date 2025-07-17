@@ -3,7 +3,7 @@ import { ConversationModel } from "../models/Conversation"
 import { AttachmentModel } from "../models/Attachment"
 import { LLMService } from "../services/llm/LLMService"
 import { CodeCompiler } from "../services/CodeCompiler"
-import type { AuthPayload, MessageContent, LLMResponse, CodeFile } from "../types"
+import type { AuthPayload, MessageContent, LLMResponse } from "../types"
 import multipart from "@fastify/multipart"
 
 export async function conversationRoutes(fastify: FastifyInstance) {
@@ -34,7 +34,6 @@ export async function conversationRoutes(fastify: FastifyInstance) {
               minLength: 1,
               maxLength: 200,
               description: "Conversation title (your first game idea/prompt)",
-              example: "Space Shooter with Power-ups and Boss Battles",
             },
           },
         },
@@ -42,27 +41,27 @@ export async function conversationRoutes(fastify: FastifyInstance) {
           201: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: true },
+              success: { type: "boolean" },
               data: {
                 type: "object",
                 properties: {
-                  _id: { type: "string", example: "507f1f77bcf86cd799439012" },
-                  title: { type: "string", example: "Space Shooter with Power-ups and Boss Battles" },
-                  userId: { type: "string", example: "507f1f77bcf86cd799439011" },
-                  messages: { type: "array", items: {}, example: [] },
+                  _id: { type: "string" },
+                  title: { type: "string" },
+                  userId: { type: "string" },
+                  messages: { type: "array", items: {} },
                   createdAt: { type: "string", format: "date-time" },
                   updatedAt: { type: "string", format: "date-time" },
                 },
               },
-              message: { type: "string", example: "Conversation created successfully" },
+              message: { type: "string" },
             },
           },
           401: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: false },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Authentication required" },
+              success: { type: "boolean" },
+              error: { type: "string" },
+              message: { type: "string" },
             },
           },
         },
@@ -93,14 +92,14 @@ export async function conversationRoutes(fastify: FastifyInstance) {
           200: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: true },
+              success: { type: "boolean" },
               data: {
                 type: "array",
                 items: {
                   type: "object",
                   properties: {
-                    _id: { type: "string", example: "507f1f77bcf86cd799439012" },
-                    title: { type: "string", example: "Space Shooter with Power-ups and Boss Battles" },
+                    _id: { type: "string" },
+                    title: { type: "string" },
                     updatedAt: { type: "string", format: "date-time" },
                   },
                 },
@@ -139,7 +138,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
           200: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: true },
+              success: { type: "boolean" },
               data: {
                 type: "object",
                 properties: {
@@ -156,9 +155,9 @@ export async function conversationRoutes(fastify: FastifyInstance) {
           404: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: false },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Conversation not found" },
+              success: { type: "boolean" },
+              error: { type: "string" },
+              message: { type: "string" },
             },
           },
         },
@@ -210,7 +209,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
           201: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: true },
+              success: { type: "boolean" },
               data: {
                 type: "object",
                 properties: {
@@ -223,23 +222,23 @@ export async function conversationRoutes(fastify: FastifyInstance) {
                   updatedAt: { type: "string", format: "date-time" },
                 },
               },
-              message: { type: "string", example: "Message sent successfully. AI response is being generated..." },
+              message: { type: "string" },
             },
           },
           404: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: false },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Conversation not found" },
+              success: { type: "boolean" },
+              error: { type: "string" },
+              message: { type: "string" },
             },
           },
           400: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: false },
-              error: { type: "string", example: "Bad Request" },
-              message: { type: "string", example: "Message text is required" },
+              success: { type: "boolean" },
+              error: { type: "string" },
+              message: { type: "string" },
             },
           },
         },
@@ -324,9 +323,11 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         )
       }
 
-      // Generate LLM response with verification asynchronously
+      // Generate LLM response with proper error handling asynchronously
       setImmediate(async () => {
         try {
+          console.log(`🤖 Starting LLM generation for message: ${messageText.substring(0, 100)}...`)
+
           // Prepare context with attachments
           const attachmentContext = await Promise.all(
             attachments.map(async (att) => ({
@@ -341,29 +342,46 @@ export async function conversationRoutes(fastify: FastifyInstance) {
             attachments: attachmentContext,
           })
 
-          // Parse structured response
-          const parsedResponse = JSON.parse(llmResponseText)
+          console.log(`✅ LLM response generated, parsing...`)
 
+          // Parse structured response
+          let parsedResponse
+          try {
+            parsedResponse = JSON.parse(llmResponseText)
+          } catch (parseError) {
+            console.error("Failed to parse LLM response:", parseError)
+            throw new Error("Invalid response format from LLM service")
+          }
+
+          // Create properly structured LLM response
           const llmResponse: Omit<LLMResponse, "version" | "createdAt"> = {
             provider: "groq",
             textResponse: parsedResponse.textResponse || "Response generated",
             codeResponse: parsedResponse.codeResponse,
             thinking: parsedResponse.thinking,
-            status: parsedResponse.codeResponse?.status === "verified" ? "completed" : "error",
+            status: parsedResponse.status || (parsedResponse.error ? "error" : "completed"),
+            error: parsedResponse.error,
           }
 
+          console.log(`💾 Saving LLM response to database...`)
           await conversationModel.addLLMResponse(conversationId, userMessage._id.toString(), llmResponse)
+          console.log(`✅ LLM response saved successfully`)
         } catch (error) {
-          console.error("LLM generation failed:", error)
+          console.error("❌ LLM generation failed:", error)
 
+          // Create structured error response
           const errorResponse: Omit<LLMResponse, "version" | "createdAt"> = {
             provider: "groq",
-            textResponse: "Sorry, I encountered an error generating the response.",
+            textResponse:
+              "I apologize, but I encountered an error while generating your game. Please try again with a more specific request.",
             status: "error",
-            error: error instanceof Error ? error.message : "Unknown error",
+            error: error instanceof Error ? error.message : "Unknown error occurred",
+            thinking:
+              "An error occurred during the generation process. This might be due to API connectivity issues or invalid input.",
           }
 
           await conversationModel.addLLMResponse(conversationId, userMessage._id.toString(), errorResponse)
+          console.log(`💾 Error response saved to database`)
         }
       })
 
@@ -400,8 +418,6 @@ export async function conversationRoutes(fastify: FastifyInstance) {
               minLength: 1,
               maxLength: 5000,
               description: "Updated message content",
-              example:
-                "Create a space shooter game with enemy ships, power-ups, boss battles, and a high score system.",
             },
           },
         },
@@ -409,7 +425,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
           200: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: true },
+              success: { type: "boolean" },
               data: {
                 type: "object",
                 properties: {
@@ -423,9 +439,9 @@ export async function conversationRoutes(fastify: FastifyInstance) {
           404: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: false },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Conversation or message not found" },
+              success: { type: "boolean" },
+              error: { type: "string" },
+              message: { type: "string" },
             },
           },
         },
@@ -474,7 +490,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
           200: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: true },
+              success: { type: "boolean" },
               data: {
                 type: "array",
                 items: {
@@ -558,47 +574,4 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       reply.send(downloadStream)
     },
   )
-}
-
-function parseCodeIntoFiles(codeContent: string, framework: string): CodeFile[] {
-  try {
-    const parsed = JSON.parse(codeContent)
-    if (parsed.codeResponse && parsed.codeResponse.files) {
-      return parsed.codeResponse.files
-    }
-  } catch (error) {
-    console.log("Failed to parse structured response, extracting code blocks...")
-  }
-
-  // Fallback: extract code from markdown blocks
-  const codeBlocks = codeContent.match(/```[\w]*\n([\s\S]*?)\n```/g) || []
-  return codeBlocks.map((block, index) => {
-    const langMatch = block.match(/```(\w+)/)
-    const language = langMatch ? langMatch[1] : "javascript"
-    const code = block.replace(/```[\w]*\n/, "").replace(/\n```$/, "")
-
-    let extension = "js"
-    let type = "js" as any
-
-    if (language === "tsx" || code.includes("JSX") || code.includes("<")) {
-      extension = "tsx"
-      type = "tsx"
-    } else if (language === "typescript" || language === "ts") {
-      extension = "ts"
-      type = "ts"
-    } else if (language === "css") {
-      extension = "css"
-      type = "css"
-    } else if (language === "html") {
-      extension = "html"
-      type = "html"
-    }
-
-    return {
-      path: `game-${index + 1}.${extension}`,
-      content: code,
-      type,
-      language: language === "tsx" ? "typescript" : language,
-    }
-  })
 }

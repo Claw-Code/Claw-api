@@ -22,21 +22,18 @@ export async function authRoutes(fastify: FastifyInstance) {
               maxLength: 50,
               pattern: "^[a-zA-Z0-9_]+$",
               description: "Unique username (alphanumeric and underscore only)",
-              example: "game_developer_123",
             },
             email: {
               type: "string",
               format: "email",
               maxLength: 100,
               description: "Valid email address",
-              example: "developer@example.com",
             },
             password: {
               type: "string",
               minLength: 6,
               maxLength: 100,
               description: "Strong password (min 6 characters)",
-              example: "SecurePass123!",
             },
           },
         },
@@ -44,34 +41,34 @@ export async function authRoutes(fastify: FastifyInstance) {
           201: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: true },
+              success: { type: "boolean" },
               data: {
                 type: "object",
                 properties: {
-                  _id: { type: "string", example: "507f1f77bcf86cd799439011" },
-                  username: { type: "string", example: "game_developer_123" },
-                  email: { type: "string", format: "email", example: "developer@example.com" },
+                  _id: { type: "string" },
+                  username: { type: "string" },
+                  email: { type: "string", format: "email" },
                   createdAt: { type: "string", format: "date-time" },
                   updatedAt: { type: "string", format: "date-time" },
                 },
               },
-              message: { type: "string", example: "User registered successfully" },
+              message: { type: "string" },
             },
           },
           409: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: false },
-              error: { type: "string", example: "Conflict" },
-              message: { type: "string", example: "User with this email already exists" },
+              success: { type: "boolean" },
+              error: { type: "string" },
+              message: { type: "string" },
             },
           },
           400: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: false },
-              error: { type: "string", example: "ValidationError" },
-              message: { type: "string", example: "Invalid input data" },
+              success: { type: "boolean" },
+              error: { type: "string" },
+              message: { type: "string" },
             },
           },
         },
@@ -117,12 +114,10 @@ export async function authRoutes(fastify: FastifyInstance) {
               type: "string",
               format: "email",
               description: "Registered email address",
-              example: "developer@example.com",
             },
             password: {
               type: "string",
               description: "User password",
-              example: "SecurePass123!",
             },
           },
         },
@@ -130,34 +125,33 @@ export async function authRoutes(fastify: FastifyInstance) {
           200: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: true },
+              success: { type: "boolean" },
               data: {
                 type: "object",
                 properties: {
                   token: {
                     type: "string",
                     description: "JWT authentication token (expires in 7 days)",
-                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
                   },
                   user: {
                     type: "object",
                     properties: {
-                      _id: { type: "string", example: "507f1f77bcf86cd799439011" },
-                      username: { type: "string", example: "game_developer_123" },
-                      email: { type: "string", format: "email", example: "developer@example.com" },
+                      _id: { type: "string" },
+                      username: { type: "string" },
+                      email: { type: "string", format: "email" },
                     },
                   },
                 },
               },
-              message: { type: "string", example: "Login successful" },
+              message: { type: "string" },
             },
           },
           401: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: false },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Invalid credentials" },
+              success: { type: "boolean" },
+              error: { type: "string" },
+              message: { type: "string" },
             },
           },
         },
@@ -211,13 +205,13 @@ export async function authRoutes(fastify: FastifyInstance) {
           200: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: true },
+              success: { type: "boolean" },
               data: {
                 type: "object",
                 properties: {
-                  _id: { type: "string", example: "507f1f77bcf86cd799439011" },
-                  username: { type: "string", example: "game_developer_123" },
-                  email: { type: "string", format: "email", example: "developer@example.com" },
+                  _id: { type: "string" },
+                  username: { type: "string" },
+                  email: { type: "string", format: "email" },
                   createdAt: { type: "string", format: "date-time" },
                   updatedAt: { type: "string", format: "date-time" },
                 },
@@ -227,17 +221,17 @@ export async function authRoutes(fastify: FastifyInstance) {
           401: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: false },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Authentication token is missing or invalid" },
+              success: { type: "boolean" },
+              error: { type: "string" },
+              message: { type: "string" },
             },
           },
           404: {
             type: "object",
             properties: {
-              success: { type: "boolean", example: false },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "User not found" },
+              success: { type: "boolean" },
+              error: { type: "string" },
+              message: { type: "string" },
             },
           },
         },
