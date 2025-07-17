@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Fixed local setup script for Claw API with pre-built MongoDB
+# Fixed local setup script for Claw API with pre-built MongoDB and dependency fixes
 
 echo "🚀 Setting up Claw API for local development with Pre-built MongoDB..."
 
@@ -13,6 +13,15 @@ fi
 # Check Docker version and compatibility
 docker_version=$(docker --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 echo "🔍 Docker version: $docker_version"
+
+# Fix npm dependencies first
+echo "🔧 Fixing npm dependencies..."
+if [ -f scripts/fix-dependencies.sh ]; then
+    chmod +x scripts/fix-dependencies.sh
+    ./scripts/fix-dependencies.sh
+else
+    echo "⚠️  Dependency fix script not found, continuing with Docker setup..."
+fi
 
 # Create necessary directories
 echo "📁 Creating directories..."
@@ -51,6 +60,14 @@ EOF
     echo "⚠️  Please edit .env.local file with your actual API keys"
 fi
 
+# Create .npmrc for Docker builds
+echo "📝 Creating .npmrc for Docker builds..."
+cat > .npmrc << EOF
+legacy-peer-deps=true
+fund=false
+audit=false
+EOF
+
 # Determine Docker Compose command
 if command -v docker-compose &> /dev/null; then
     compose_cmd="docker-compose"
@@ -79,16 +96,30 @@ case $choice in
         docker pull mongo:7.0
         
         $compose_cmd -f docker-compose.local.yml down 2>/dev/null || true
+        echo "🔨 Building with dependency fixes..."
         $compose_cmd -f docker-compose.local.yml build --no-cache
         $compose_cmd -f docker-compose.local.yml up -d
         
         echo "⏳ Waiting for services..."
-        sleep 30
+        sleep 35
         
-        # Test health
-        if curl -f http://localhost:8000/health 2>/dev/null; then
-            echo "✅ Services started successfully!"
-        else
+        # Test health with retry
+        echo "🏥 Testing API health..."
+        max_attempts=10
+        attempt=1
+        
+        while [ $attempt -le $max_attempts ]; do
+            if curl -f http://localhost:8000/health 2>/dev/null; then
+                echo "✅ Services started successfully!"
+                break
+            else
+                echo "⏳ Attempt $attempt/$max_attempts, waiting..."
+                sleep 5
+                ((attempt++))
+            fi
+        done
+        
+        if [ $attempt -gt $max_attempts ]; then
             echo "⚠️  Services may still be starting, check logs: $compose_cmd -f docker-compose.local.yml logs"
         fi
         
@@ -103,16 +134,30 @@ case $choice in
         docker pull mongo:7.0
         
         $compose_cmd -f docker-compose.standalone.yml down 2>/dev/null || true
+        echo "🔨 Building standalone with dependency fixes..."
         $compose_cmd -f docker-compose.standalone.yml build --no-cache
         $compose_cmd -f docker-compose.standalone.yml up -d
         
         echo "⏳ Waiting for services (this takes longer for embedded MongoDB)..."
-        sleep 45
+        sleep 50
         
-        # Test health
-        if curl -f http://localhost:8000/health 2>/dev/null; then
-            echo "✅ Standalone service started successfully!"
-        else
+        # Test health with retry
+        echo "🏥 Testing API health..."
+        max_attempts=12
+        attempt=1
+        
+        while [ $attempt -le $max_attempts ]; do
+            if curl -f http://localhost:8000/health 2>/dev/null; then
+                echo "✅ Standalone service started successfully!"
+                break
+            else
+                echo "⏳ Attempt $attempt/$max_attempts, waiting..."
+                sleep 5
+                ((attempt++))
+            fi
+        done
+        
+        if [ $attempt -gt $max_attempts ]; then
             echo "⚠️  Service may still be starting, check logs: $compose_cmd -f docker-compose.standalone.yml logs"
         fi
         
@@ -133,16 +178,30 @@ case $choice in
         docker pull nginx:alpine
         
         $compose_cmd down 2>/dev/null || true
+        echo "🔨 Building production setup with dependency fixes..."
         $compose_cmd build --no-cache
         $compose_cmd up -d
         
         echo "⏳ Waiting for all services..."
-        sleep 45
+        sleep 50
         
-        # Test health
-        if curl -f http://localhost:8000/health 2>/dev/null; then
-            echo "✅ All services started successfully!"
-        else
+        # Test health with retry
+        echo "🏥 Testing API health..."
+        max_attempts=15
+        attempt=1
+        
+        while [ $attempt -le $max_attempts ]; do
+            if curl -f http://localhost:8000/health 2>/dev/null; then
+                echo "✅ All services started successfully!"
+                break
+            else
+                echo "⏳ Attempt $attempt/$max_attempts, waiting..."
+                sleep 5
+                ((attempt++))
+            fi
+        done
+        
+        if [ $attempt -gt $max_attempts ]; then
             echo "⚠️  Services may still be starting, check logs: $compose_cmd logs"
         fi
         
@@ -174,3 +233,8 @@ echo "- View logs: $compose_cmd logs -f"
 echo "- Stop services: $compose_cmd down"
 echo "- Restart: $compose_cmd restart"
 echo "- MongoDB shell: docker exec -it claw-mongodb-local mongosh claw_api"
+echo ""
+echo "🔧 Troubleshooting:"
+echo "- If dependency issues: npm run install:clean"
+echo "- If build fails: $compose_cmd build --no-cache"
+echo "- View container logs: docker logs [container_name] -f"

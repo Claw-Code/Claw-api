@@ -19,8 +19,8 @@ FROM base AS development
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including dev)
-RUN npm install
+# Install all dependencies with legacy peer deps to avoid conflicts
+RUN npm install --legacy-peer-deps
 
 # Copy source code
 COPY . .
@@ -62,8 +62,8 @@ FROM base AS production
 # Copy package files
 COPY package*.json ./
 
-# Install only production dependencies
-RUN npm ci --only=production
+# Install only production dependencies with legacy peer deps
+RUN npm ci --only=production --legacy-peer-deps
 
 # Copy built application
 COPY . .

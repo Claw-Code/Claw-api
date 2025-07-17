@@ -1,5 +1,5 @@
 // MongoDB initialization script
-const db = db.getSiblingDB("claw_api")
+const db = db.getSiblingDB(process.env.DB_NAME || "claw_api")
 
 // Create collections
 db.createCollection("users")

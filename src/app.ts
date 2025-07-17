@@ -3,8 +3,10 @@ import cors from "@fastify/cors"
 import swagger from "@fastify/swagger"
 import swaggerUi from "@fastify/swagger-ui"
 import { database } from "./config/database"
+import { setupAuth } from "./config/auth"
 import { authRoutes } from "./routes/auth"
 import { chatRoutes } from "./routes/chat"
+import { uploadRoutes } from "./routes/upload"
 import { downloadRoutes } from "./routes/download"
 import { previewRoutes } from "./routes/preview"
 
@@ -17,101 +19,68 @@ const fastify = Fastify({
   },
 })
 
-// Register plugins
-async function registerPlugins() {
-  // CORS
-  await fastify.register(cors, {
-    origin: true,
-    credentials: true,
-  })
+async function main() {
+  // Connect to database
+  await database.connect()
+
+  // Register plugins
+  await fastify.register(cors, { origin: true, credentials: true })
+  await setupAuth(fastify)
 
   // Swagger documentation
   await fastify.register(swagger, {
     swagger: {
       info: {
-        title: "Claw API",
-        description: "AI-powered code generation API for gaming and development",
-        version: "1.0.0",
+        title: "Claw API v2",
+        description: "Advanced AI-powered code generation API with auth, versioning, and more.",
+        version: "2.0.0",
       },
       host: "localhost:8000",
-      schemes: ["http", "https"],
+      schemes: ["http"],
       consumes: ["application/json"],
       produces: ["application/json"],
       tags: [
-        { name: "Authentication", description: "User authentication endpoints" },
-        { name: "Chat", description: "Chat and code generation endpoints" },
+        { name: "Authentication", description: "User authentication and profile" },
+        { name: "Chat", description: "Core chat and message management" },
+        { name: "Upload", description: "File uploads for LLM context" },
         { name: "Download", description: "Code download endpoints" },
         { name: "Preview", description: "Code preview endpoints" },
       ],
+      securityDefinitions: {
+        bearerAuth: {
+          type: "apiKey",
+          name: "Authorization",
+          in: "header",
+          description: "Enter your JWT token in the format 'Bearer <token>'",
+        },
+      },
     },
   })
 
   await fastify.register(swaggerUi, {
     routePrefix: "/docs",
-    uiConfig: {
-      docExpansion: "full",
-      deepLinking: false,
-    },
+    uiConfig: { docExpansion: "full", deepLinking: false },
   })
-}
 
-// Register routes
-async function registerRoutes() {
+  // Register routes
   await fastify.register(authRoutes, { prefix: "/api/auth" })
-  await fastify.register(chatRoutes, { prefix: "/api/chat" })
+  await fastify.register(chatRoutes, { prefix: "/api/chats" })
+  await fastify.register(uploadRoutes, { prefix: "/api/uploads" })
   await fastify.register(downloadRoutes, { prefix: "/api/download" })
   await fastify.register(previewRoutes, { prefix: "/api/preview" })
-}
 
-// Health check
-fastify.get("/health", async (request, reply) => {
-  return {
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  }
-})
+  // Health check
+  fastify.get("/health", async () => ({ status: "ok" }))
 
-// Root endpoint
-fastify.get("/", async (request, reply) => {
-  return {
-    message: "Claw API Server",
-    version: "1.0.0",
-    docs: "/docs",
-    health: "/health",
-  }
-})
-
-// Start server
-async function start() {
+  // Start server
   try {
-    // Connect to database
-    await database.connect()
-
-    // Register plugins and routes
-    await registerPlugins()
-    await registerRoutes()
-
-    // Start server
     const port = Number.parseInt(process.env.PORT || "8000")
     const host = process.env.HOST || "0.0.0.0"
-
     await fastify.listen({ port, host })
-
-    console.log(`🚀 Server running at http://${host}:${port}`)
-    console.log(`📚 API Documentation: http://${host}:${port}/docs`)
-  } catch (error) {
-    fastify.log.error(error)
+  } catch (err) {
+    fastify.log.error(err)
     process.exit(1)
   }
 }
 
-// Graceful shutdown
-process.on("SIGINT", async () => {
-  console.log("Shutting down gracefully...")
-  await database.disconnect()
-  await fastify.close()
-  process.exit(0)
-})
-
-start()
+main()

@@ -1,6 +1,7 @@
 import { type Collection, ObjectId } from "mongodb"
 import { database } from "../config/database"
 import type { User } from "../types"
+import bcrypt from "bcrypt"
 
 export class UserModel {
   private collection: Collection<User>
@@ -9,18 +10,24 @@ export class UserModel {
     this.collection = database.getDb().collection<User>("users")
   }
 
-  async create(userData: Omit<User, "_id" | "createdAt" | "updatedAt">): Promise<User> {
+  async create(
+    userData: Omit<User, "_id" | "createdAt" | "updatedAt" | "password"> & { password?: string },
+  ): Promise<User> {
+    const hashedPassword = userData.password ? await bcrypt.hash(userData.password, 10) : undefined
+
     const user: User = {
       ...userData,
+      password: hashedPassword,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
 
     const result = await this.collection.insertOne(user)
-    return { ...user, _id: result.insertedId.toString() }
+    return { ...user, _id: result.insertedId }
   }
 
   async findById(id: string): Promise<User | null> {
+    if (!ObjectId.isValid(id)) return null
     return await this.collection.findOne({ _id: new ObjectId(id) })
   }
 
@@ -28,12 +35,7 @@ export class UserModel {
     return await this.collection.findOne({ email })
   }
 
-  async update(id: string, updates: Partial<User>): Promise<User | null> {
-    const result = await this.collection.findOneAndUpdate(
-      { _id: new ObjectId(id) },
-      { $set: { ...updates, updatedAt: new Date() } },
-      { returnDocument: "after" },
-    )
-    return result
+  async verifyPassword(password: string, hash: string): Promise<boolean> {
+    return bcrypt.compare(password, hash)
   }
 }

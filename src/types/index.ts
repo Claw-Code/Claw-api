@@ -1,30 +1,59 @@
+import type { ObjectId } from "mongodb"
+
 export interface User {
-  _id?: string
+  _id?: ObjectId
   username: string
   email: string
+  password?: string // Will be hashed
   createdAt: Date
   updatedAt: Date
 }
 
-export interface Chat {
-  _id?: string
+export interface AuthPayload {
   userId: string
-  title: string
+  username: string
+}
+
+export interface Chat {
+  _id?: ObjectId
+  userId: ObjectId
+  title: string // The first user prompt becomes the title
   messages: Message[]
+  contextDocuments?: Attachment[]
   createdAt: Date
   updatedAt: Date
 }
 
 export interface Message {
-  id: string
+  _id: ObjectId
   role: "user" | "assistant"
-  content: string
-  code?: GeneratedCode
-  timestamp: Date
+  content: ContentVersion[] // Array to store edit history
+  attachments?: Attachment[]
+  assistantResponse?: AssistantResponseVersion[] // For assistant messages, storing response versions
+  createdAt: Date
+  updatedAt: Date
 }
 
-export interface GeneratedCode {
-  id: string
+export interface ContentVersion {
+  version: number
+  text: string
+}
+
+export interface Attachment {
+  fileId: ObjectId
+  filename: string
+  mimetype: string
+  size: number
+  uploadedAt: Date
+}
+
+export interface CodeFile {
+  path: string
+  content: string
+  type: "tsx" | "ts" | "css" | "json" | "html" | "md"
+}
+
+export interface CodeSnippet {
   files: CodeFile[]
   framework: string
   previewUrl?: string
@@ -32,10 +61,12 @@ export interface GeneratedCode {
   status: "generating" | "ready" | "error"
 }
 
-export interface CodeFile {
-  path: string
-  content: string
-  type: "tsx" | "ts" | "css" | "json" | "html"
+export interface AssistantResponseVersion {
+  version: number
+  text: string // Supports Markdown
+  code: CodeSnippet
+  thinking?: string // LLM's thought process
+  createdAt: Date
 }
 
 export interface LLMProvider {
