@@ -160,25 +160,156 @@ Please fix these issues and generate corrected code for the original request: ${
 import type { LLMProvider } from "../../types"
 import { HuggingFaceProvider } from "./providers/huggingface"
 import { OllamaProvider } from "./providers/ollama"
-import { GroqProvider } from "./providers/groq"
+import { CodeCompiler } from "../CodeCompiler"
 
 export class LLMService {
   private providers: LLMProvider[]
-  private fallbackProvider: LLMProvider
+  private primaryProvider: LLMProvider
+  private codeCompiler: CodeCompiler
+  private maxRetries = 3
 
   constructor() {
-    this.providers = [new GroqProvider(), new HuggingFaceProvider(), new OllamaProvider()]
-    this.fallbackProvider = new HuggingFaceProvider()
+    // Prioritize Groq as it's free and reliable for Phaser.js
+    this.primaryProvider = new GroqProvider()
+    this.providers = [this.primaryProvider, new HuggingFaceProvider(), new OllamaProvider()]
+    this.codeCompiler = new CodeCompiler()
   }
 
+  /**
+   * Generate code with self-correction loop and verification
+   */
   async generateCode(prompt: string, context?: any): Promise<string> {
-    // Try each provider in order
-    for (const provider of this.providers) {
+    console.log(`🎮 Starting Phaser.js game generation with verification for: ${prompt.substring(0, 100)}...`)
+
+    let attempt = 1
+    let lastError = ""
+
+    while (attempt <= this.maxRetries) {
       try {
+        console.log(`🔄 Attempt ${attempt}/${this.maxRetries}`)
+
+        // Generate code
+        const response = await this.generateCodeInternal(prompt, context, lastError)
+        const parsedResponse = JSON.parse(response)
+
+        // Extract code files for verification
+        const codeFiles = parsedResponse.codeResponse?.files || []
+
+        if (codeFiles.length === 0) {
+          console.log("⚠️  No code files generated, returning text response only")
+          return response
+        }
+
+        // Verify the generated code
+        const verificationResult = await this.verifyPhaserCode(
+          codeFiles,
+          parsedResponse.codeResponse?.framework || "phaser.js",
+        )
+
+        if (verificationResult.isValid) {
+          console.log(`✅ Phaser.js code verification passed on attempt ${attempt}`)
+
+          // Update the response with verification status and enhancements
+          parsedResponse.codeResponse.status = "verified"
+          parsedResponse.textResponse += "\n\n✅ **Code Verification**: All Phaser.js checks passed successfully!"
+          parsedResponse.textResponse += "\n\n🎮 **Game Features**: " + this.extractGameFeatures(codeFiles)
+
+          return JSON.stringify(parsedResponse)
+        } else {
+          console.log(`❌ Phaser.js code verification failed on attempt ${attempt}:`, verificationResult.errors)
+
+          if (attempt === this.maxRetries) {
+            // Last attempt failed, return with error info but still provide the code
+            parsedResponse.codeResponse.status = "error"
+            parsedResponse.textResponse += `\n\n⚠️ **Code Verification Issues**: ${verificationResult.errors.join(", ")}`
+            parsedResponse.textResponse +=
+              "\n\n💡 **Tip**: The code may still work, but consider these improvements for better performance."
+            return JSON.stringify(parsedResponse)
+          }
+
+          // Prepare for retry with error feedback
+          lastError = verificationResult.errors.join("; ")
+          attempt++
+        }
+      } catch (error) {
+        console.error(`❌ Generation attempt ${attempt} failed:`, error)
+
+        if (attempt === this.maxRetries) {
+          return this.createPhaserErrorResponse(error instanceof Error ? error.message : "Unknown error")
+        }
+
+        lastError = error instanceof Error ? error.message : "Generation failed"
+        attempt++
+      }
+    }
+
+    return this.createPhaserErrorResponse("Max retries exceeded")
+  }
+
+  /**
+   * Internal code generation with optional error feedback for self-correction
+   */
+  private async generateCodeInternal(prompt: string, context?: any, previousError?: string): Promise<string> {
+    let enhancedPrompt = prompt
+
+    // Add error feedback for self-correction
+    if (previousError) {
+      enhancedPrompt = `The previous Phaser.js code generation had these issues: ${previousError}
+
+Please fix these issues and generate corrected code for the original request: ${prompt}
+
+**Critical fixes needed:**
+1. Fix all JavaScript syntax errors
+2. Use correct Phaser.js 3.x API calls and methods
+3. Include proper scene management and lifecycle methods
+4. Add comprehensive error handling and null checks
+5. Ensure proper asset loading and management
+6. Fix physics configuration and collision detection
+7. Add proper input handling and event listeners
+8. Include performance optimizations and memory management
+9. Ensure mobile compatibility and responsive design
+10. Add proper game state management
+
+**Phaser.js Best Practices to Follow:**
+- Use proper scene inheritance (extends Phaser.Scene)
+- Implement preload(), create(), and update() methods correctly
+- Use this.physics.add for physics bodies
+- Use this.add for game objects
+- Use this.input for input handling
+- Use this.anims for animations
+- Use this.sound for audio
+- Use this.cameras for camera controls
+- Proper cleanup in scene shutdown/destroy methods`
+    }
+
+    // Try primary provider (Groq) first
+    try {
+      const isAvailable = await this.primaryProvider.isAvailable()
+      if (isAvailable) {
+        console.log(`✅ Using primary provider: ${this.primaryProvider.name}`)
+        const response = await this.primaryProvider.generate(enhancedPrompt, {
+          ...context,
+          framework: "phaser.js",
+        })
+        console.log(`✅ Generated Phaser.js response from ${this.primaryProvider.name}`)
+        return response
+      }
+    } catch (error) {
+      console.error(`❌ Primary provider ${this.primaryProvider.name} failed:`, error)
+    }
+
+    // Try fallback providers
+    for (const provider of this.providers.slice(1)) {
+      try {
+        console.log(`🔄 Trying fallback provider: ${provider.name}`)
         const isAvailable = await provider.isAvailable()
         if (isAvailable) {
-          console.log(`Using provider: ${provider.name}`)
-          return await provider.generate(prompt, context)
+          const response = await provider.generate(enhancedPrompt, {
+            ...context,
+            framework: "phaser.js",
+          })
+          console.log(`✅ Generated Phaser.js response from ${provider.name}`)
+          return response
         }
       } catch (error) {
         console.warn(`Provider ${provider.name} failed:`, error)

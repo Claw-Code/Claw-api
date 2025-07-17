@@ -1,19 +1,7 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
 # Fixed local development Dockerfile with proper bcrypt compilation
 FROM node:18-bullseye
 
 # Install system dependencies including build tools for native modules
-=======
-FROM ubuntu:22.04
-
->>>>>>> d07d2a6 (Init API)
-=======
-# Local development Dockerfile - Single container with wait-for-it script
-FROM node:18-bullseye
-
-# Install system dependencies
->>>>>>> 9ce6ccf (Updated dockerScript)
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -25,6 +13,7 @@ RUN apt-get update && apt-get install -y \
 <<<<<<< HEAD
     wget \
     netcat-openbsd \
+    build-essential \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
@@ -43,35 +32,6 @@ COPY .npmrc ./
 RUN npm install --legacy-peer-deps && \
     npm rebuild bcrypt --build-from-source && \
     npm cache clean --force
-=======
-    gnupg \
-    supervisor \
-    mongodb-org-tools \
- && rm -rf /var/lib/apt/lists/*
-=======
-    wget \
-    netcat-openbsd \
-    && rm -rf /var/lib/apt/lists/*
->>>>>>> 9ce6ccf (Updated dockerScript)
-
-WORKDIR /app
-
-# Install wait-for-it script
-RUN wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh \
-    && chmod +x wait-for-it.sh \
-    && mv wait-for-it.sh /usr/local/bin/
-
-# Copy package files
-COPY package*.json ./
-
-<<<<<<< HEAD
-# Install dependencies
-RUN npm install
->>>>>>> d07d2a6 (Init API)
-=======
-# Install dependencies with legacy peer deps to avoid conflicts
-RUN npm install --legacy-peer-deps
->>>>>>> 19ce577 (convo fix and LLm tune)
 
 # Copy source code
 COPY . .
@@ -162,21 +122,6 @@ npm rebuild bcrypt --build-from-source
 # Wait for MongoDB to be ready
 echo "⏳ Waiting for MongoDB at ${MONGODB_HOST:-mongodb-local}:${MONGODB_PORT:-27017}..."
 wait-for-it.sh ${MONGODB_HOST:-mongodb-local}:${MONGODB_PORT:-27017} --timeout=60 --strict
-
-echo "✅ MongoDB is ready!"
-
-# Start the application
-echo "🌟 Starting API server..."
-npm run dev
-=======
-echo "🚀 Starting Claw API with embedded MongoDB..."
-=======
-echo "🚀 Starting Claw API (waiting for external MongoDB)..."
->>>>>>> 9ce6ccf (Updated dockerScript)
-
-# Wait for MongoDB to be ready
-echo "⏳ Waiting for MongoDB at ${MONGODB_HOST:-mongodb}:${MONGODB_PORT:-27017}..."
-wait-for-it.sh ${MONGODB_HOST:-mongodb}:${MONGODB_PORT:-27017} --timeout=60 --strict
 
 echo "✅ MongoDB is ready!"
 

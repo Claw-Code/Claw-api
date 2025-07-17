@@ -1,14 +1,7 @@
-<<<<<<< HEAD
 # Fixed standalone Dockerfile with proper bcrypt compilation
 FROM node:18-bullseye
 
 # Install system dependencies including MongoDB and build tools
-=======
-# Standalone Dockerfile with MongoDB using supervisor (Debian-based)
-FROM node:18-bullseye
-
-# Install system dependencies including MongoDB
->>>>>>> 9ce6ccf (Updated dockerScript)
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -19,7 +12,6 @@ RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
     supervisor \
-<<<<<<< HEAD
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
@@ -29,21 +21,10 @@ RUN wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | apt-key add -
     apt-get update && \
     apt-get install -y mongodb-org && \
     rm -rf /var/lib/apt/lists/*
-=======
-    && rm -rf /var/lib/apt/lists/*
-
-# Install MongoDB
-RUN wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | apt-key add - \
-    && echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-7.0.list \
-    && apt-get update \
-    && apt-get install -y mongodb-org \
-    && rm -rf /var/lib/apt/lists/*
->>>>>>> 9ce6ccf (Updated dockerScript)
 
 WORKDIR /app
 
 # Create MongoDB directories
-<<<<<<< HEAD
 RUN mkdir -p /data/db /var/log/mongodb /etc/supervisor/conf.d && \
     chown -R mongodb:mongodb /data/db /var/log/mongodb
 
@@ -55,21 +36,6 @@ COPY .npmrc ./
 RUN npm install --legacy-peer-deps && \
     npm rebuild bcrypt --build-from-source && \
     npm cache clean --force
-=======
-RUN mkdir -p /data/db /var/log/mongodb /etc/supervisor/conf.d
-RUN chown -R mongodb:mongodb /data/db /var/log/mongodb
-
-# Copy package files
-COPY package*.json ./
-
-<<<<<<< HEAD
-# Install dependencies
-RUN npm install
->>>>>>> 9ce6ccf (Updated dockerScript)
-=======
-# Install dependencies with legacy peer deps to avoid conflicts
-RUN npm install --legacy-peer-deps
->>>>>>> 19ce577 (convo fix and LLm tune)
 
 # Copy source code
 COPY . .
@@ -94,11 +60,7 @@ stderr_logfile=/var/log/supervisor/mongodb.err.log
 stdout_logfile=/var/log/supervisor/mongodb.out.log
 
 [program:api]
-<<<<<<< HEAD
 command=/app/start-api.sh
-=======
-command=npm run dev
->>>>>>> 9ce6ccf (Updated dockerScript)
 directory=/app
 user=root
 autostart=true
@@ -108,7 +70,6 @@ stdout_logfile=/var/log/supervisor/api.out.log
 environment=NODE_ENV="development",MONGODB_URL="mongodb://localhost:27017/claw_api",PORT="8000"
 EOF
 
-<<<<<<< HEAD
 # Create API startup script
 RUN cat > /app/start-api.sh << 'EOF'
 #!/bin/bash
@@ -123,8 +84,6 @@ EOF
 
 RUN chmod +x /app/start-api.sh
 
-=======
->>>>>>> 9ce6ccf (Updated dockerScript)
 # Create initialization script
 RUN cat > /app/init-db.sh << 'EOF'
 #!/bin/bash

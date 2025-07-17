@@ -25,8 +25,6 @@ export interface User {
   updatedAt: Date
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 export interface AuthPayload {
   userId: string
   username: string
@@ -37,25 +35,8 @@ export interface Conversation {
   _id?: ObjectId
   userId: ObjectId
   title: string // The first user prompt becomes the title
-=======
-export interface Chat {
-  _id?: string
-  userId: string
-  title: string
->>>>>>> d07d2a6 (Init API)
-=======
-export interface AuthPayload {
-  userId: string
-  username: string
-}
-
-export interface Chat {
-  _id?: ObjectId
-  userId: ObjectId
-  title: string // The first user prompt becomes the title
 >>>>>>> 19ce577 (convo fix and LLm tune)
   messages: Message[]
-  contextDocuments?: Attachment[]
   createdAt: Date
   updatedAt: Date
 }
@@ -111,61 +92,56 @@ export interface CodeResponse {
   id: string
 =======
   _id: ObjectId
->>>>>>> 19ce577 (convo fix and LLm tune)
+  conversationId: ObjectId
   role: "user" | "assistant"
-  content: ContentVersion[] // Array to store edit history
+  content: MessageContent[]
   attachments?: Attachment[]
-  assistantResponse?: AssistantResponseVersion[] // For assistant messages, storing response versions
+  llmResponse?: LLMResponse[]
   createdAt: Date
   updatedAt: Date
 }
 
-export interface ContentVersion {
+export interface MessageContent {
   version: number
   text: string
+  editedAt: Date
 }
 
 export interface Attachment {
-  fileId: ObjectId
+  _id: ObjectId
+  messageId: ObjectId
   filename: string
+  originalName: string
   mimetype: string
   size: number
+  gridfsId: ObjectId
   uploadedAt: Date
 }
 
-export interface CodeFile {
-  path: string
-  content: string
-  type: "tsx" | "ts" | "css" | "json" | "html" | "md"
+export interface LLMResponse {
+  version: number
+  provider: string
+  textResponse: string
+  codeResponse?: CodeResponse
+  thinking?: string
+  status: "generating" | "completed" | "error"
+  error?: string
+  createdAt: Date
 }
 
-export interface CodeSnippet {
+export interface CodeResponse {
   files: CodeFile[]
   framework: string
+  language: string
   previewUrl?: string
   downloadUrl?: string
-  status: "generating" | "ready" | "error"
->>>>>>> d07d2a6 (Init API)
 }
 
-<<<<<<< HEAD
 export interface CodeFile {
   path: string
   content: string
-<<<<<<< HEAD
   type: "tsx" | "ts" | "css" | "json" | "html" | "md" | "js" | "jsx"
   language: string
-=======
-  type: "tsx" | "ts" | "css" | "json" | "html"
->>>>>>> d07d2a6 (Init API)
-=======
-export interface AssistantResponseVersion {
-  version: number
-  text: string // Supports Markdown
-  code: CodeSnippet
-  thinking?: string // LLM's thought process
-  createdAt: Date
->>>>>>> 19ce577 (convo fix and LLm tune)
 }
 
 export interface LLMProvider {
@@ -180,7 +156,6 @@ export interface PreviewEnvironment {
   status: "building" | "ready" | "error"
   buildLogs: string[]
 }
-<<<<<<< HEAD
 
 export interface GeneratedCode {
   files: CodeFile[]
@@ -189,5 +164,3 @@ export interface GeneratedCode {
   previewUrl?: string
   downloadUrl?: string
 }
-=======
->>>>>>> d07d2a6 (Init API)

@@ -63,13 +63,22 @@ export class CodeCompiler {
 
       // Install dependencies
       const buildLogs: string[] = []
-      buildLogs.push("Installing dependencies...")
+      buildLogs.push("🎮 Setting up Phaser.js project...")
 
-      const { stdout: installOutput } = await execAsync("npm install", {
-        cwd: projectDir,
-        timeout: 120000,
-      })
-      buildLogs.push(installOutput)
+      if (generatedCode.framework === "phaser.js") {
+        // For Phaser.js, we don't need npm install since it uses CDN
+        buildLogs.push("✅ Phaser.js project ready (using CDN)")
+
+        // Create a simple HTTP server for preview
+        await this.createSimpleServer(projectDir)
+        buildLogs.push("✅ HTTP server created for game preview")
+      } else {
+        // For other frameworks, install dependencies
+        const { stdout: installOutput } = await execAsync("npm install", {
+          cwd: projectDir,
+          timeout: 120000,
+        })
+        buildLogs.push(installOutput)
 
       // Build the project
       buildLogs.push("Building project...")
@@ -170,15 +179,11 @@ export class CodeCompiler {
 =======
   private getDefaultPackageJson(framework: string) {
     const basePackage = {
-      name: "generated-project",
+      name: "phaser-game-generated",
       version: "1.0.0",
       private: true,
-      scripts: {
-        dev: "next dev",
-        build: "next build",
-        start: "next start",
-        lint: "next lint",
-      },
+      description: "Generated Phaser.js game",
+      main: "index.html",
     }
 
     switch (framework.toLowerCase()) {

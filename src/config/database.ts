@@ -3,7 +3,6 @@ import { MongoClient, type Db } from "mongodb"
 class Database {
   private client: MongoClient
   private db: Db
-<<<<<<< HEAD
   private isConnected = false
   private maxRetries = 5
   private retryDelay = 2000
@@ -61,37 +60,17 @@ class Database {
         await new Promise((resolve) => setTimeout(resolve, this.retryDelay))
         this.retryDelay *= 1.5 // Exponential backoff
       }
-=======
-
-  constructor() {
-    const mongoUrl = process.env.MONGODB_URL || "mongodb://localhost:27017"
-    this.client = new MongoClient(mongoUrl)
-  }
-
-  async connect(): Promise<void> {
-    try {
-      await this.client.connect()
-      this.db = this.client.db(process.env.DB_NAME || "claw_api")
-      console.log("Connected to MongoDB")
-    } catch (error) {
-      console.error("MongoDB connection error:", error)
-      throw error
->>>>>>> d07d2a6 (Init API)
     }
   }
 
   getDb(): Db {
-<<<<<<< HEAD
     if (!this.isConnected || !this.db) {
       throw new Error("Database not connected. Call connect() first.")
     }
-=======
->>>>>>> d07d2a6 (Init API)
     return this.db
   }
 
   async disconnect(): Promise<void> {
-<<<<<<< HEAD
     if (this.client) {
       await this.client.close()
       this.isConnected = false
@@ -111,9 +90,6 @@ class Database {
       this.isConnected = false
       return false
     }
-=======
-    await this.client.close()
->>>>>>> d07d2a6 (Init API)
   }
 }
 
