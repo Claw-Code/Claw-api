@@ -71,7 +71,7 @@ class Database {
   async connect(): Promise<void> {
     try {
       await this.client.connect()
-      this.db = this.client.db(process.env.DB_NAME || "v0_clone")
+      this.db = this.client.db(process.env.DB_NAME || "claw_api")
       console.log("Connected to MongoDB")
     } catch (error) {
       console.error("MongoDB connection error:", error)

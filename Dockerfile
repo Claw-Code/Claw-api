@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Fixed production Dockerfile with proper native module handling
 FROM node:18-bullseye AS base
 
@@ -7,6 +8,12 @@ FROM node:18-bullseye AS base
 # Multi-stage build for local development and testing
 FROM ubuntu:22.04
 >>>>>>> d07d2a6 (Init API)
+=======
+# Use Node.js 18 on Debian (has better package support than Alpine)
+FROM node:18-bullseye AS base
+
+# Install system dependencies for Debian
+>>>>>>> 9ce6ccf (Updated dockerScript)
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -14,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     bash \
+<<<<<<< HEAD
 <<<<<<< HEAD
     build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -36,18 +44,14 @@ RUN npm install --legacy-peer-deps && \
     supervisor \
     mongodb-org-tools \
  && rm -rf /var/lib/apt/lists/*
+=======
+    && rm -rf /var/lib/apt/lists/*
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
 WORKDIR /app
 
-# Development stage with MongoDB
+# Development stage (MongoDB will be separate container)
 FROM base AS development
-
-# Install MongoDB
-RUN apk add --no-cache mongodb mongodb-tools
-
-# Create MongoDB data directory
-RUN mkdir -p /data/db /var/log/mongodb
-RUN chown -R mongodb:mongodb /data/db /var/log/mongodb
 
 # Copy package files
 COPY package*.json ./
@@ -70,16 +74,20 @@ set -e
 echo "🚀 Starting Claw API in development mode..."
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Rebuild native modules to ensure compatibility
 echo "🔧 Rebuilding native modules..."
 npm rebuild bcrypt --build-from-source
 
+=======
+>>>>>>> 9ce6ccf (Updated dockerScript)
 # Wait for MongoDB to be available
 echo "⏳ Waiting for MongoDB to be ready..."
 while ! curl -s mongodb:27017 > /dev/null; do
   echo "Waiting for MongoDB..."
   sleep 2
 done
+<<<<<<< HEAD
 
 echo "✅ MongoDB is ready!"
 =======
@@ -102,6 +110,10 @@ db.chats.createIndex({ createdAt: 1 });
 print('Database initialized successfully!');
 "
 >>>>>>> d07d2a6 (Init API)
+=======
+
+echo "✅ MongoDB is ready!"
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
 # Start the application
 echo "🌟 Starting API server..."
@@ -146,6 +158,7 @@ RUN mkdir -p workspace/downloads logs
 
 # Create non-root user
 <<<<<<< HEAD
+<<<<<<< HEAD
 RUN groupadd -g 1001 nodejs && \
     useradd -r -u 1001 -g nodejs clawuser
 
@@ -157,6 +170,10 @@ USER clawuser
 =======
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nextjs -u 1001
+=======
+RUN groupadd -g 1001 nodejs
+RUN useradd -r -u 1001 -g nodejs nextjs
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
 # Change ownership
 RUN chown -R nextjs:nodejs workspace logs

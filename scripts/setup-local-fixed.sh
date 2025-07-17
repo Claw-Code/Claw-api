@@ -1,8 +1,14 @@
 #!/bin/bash
 
+<<<<<<< HEAD
 # Fixed local setup script for Claw API with bcrypt native module fix
 
 echo "🚀 Setting up Claw API for local development with bcrypt fix..."
+=======
+# Fixed local setup script for Claw API with pre-built MongoDB
+
+echo "🚀 Setting up Claw API for local development with Pre-built MongoDB..."
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
@@ -37,8 +43,11 @@ GROQ_API_KEY=your_groq_api_key_here
 
 # Database (pre-built MongoDB container)
 MONGODB_URL=mongodb://mongodb-local:27017/claw_api
+<<<<<<< HEAD
 MONGODB_HOST=mongodb-local
 MONGODB_PORT=27017
+=======
+>>>>>>> 9ce6ccf (Updated dockerScript)
 DB_NAME=claw_api
 
 # Application
@@ -53,6 +62,7 @@ EOF
     echo "⚠️  Please edit .env.local file with your actual API keys"
 fi
 
+<<<<<<< HEAD
 # Create .npmrc for Docker builds with bcrypt fix
 echo "📝 Creating .npmrc for Docker builds..."
 cat > .npmrc << EOF
@@ -62,6 +72,8 @@ audit=false
 build-from-source=true
 EOF
 
+=======
+>>>>>>> 9ce6ccf (Updated dockerScript)
 # Determine Docker Compose command
 if command -v docker-compose &> /dev/null; then
     compose_cmd="docker-compose"
@@ -69,19 +81,28 @@ else
     compose_cmd="docker compose"
 fi
 
+<<<<<<< HEAD
 # Clean up any existing containers first
 echo "🧹 Cleaning up existing containers..."
 $compose_cmd -f docker-compose.local.yml down 2>/dev/null || true
 docker stop claw-local-dev claw-standalone 2>/dev/null || true
 docker rm claw-local-dev claw-standalone 2>/dev/null || true
 
+=======
+>>>>>>> 9ce6ccf (Updated dockerScript)
 # Option selection
 echo ""
 echo "🎯 Choose your setup option:"
 echo "1. Docker Compose with separate MongoDB (recommended for development)"
 echo "2. Standalone container with embedded MongoDB (for testing)"
+<<<<<<< HEAD
 echo ""
 read -p "Enter your choice (1 or 2): " choice
+=======
+echo "3. Production-like setup with all services"
+echo ""
+read -p "Enter your choice (1, 2, or 3): " choice
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
 case $choice in
     1)
@@ -94,6 +115,7 @@ case $choice in
         echo "📥 Pulling MongoDB image..."
         docker pull mongo:7.0
         
+<<<<<<< HEAD
         echo "🔨 Building with bcrypt fix..."
         $compose_cmd -f docker-compose.local.yml build --no-cache
         
@@ -123,6 +145,20 @@ case $choice in
             echo "⚠️  Services may still be starting, checking logs..."
             echo "📋 API logs:"
             $compose_cmd -f docker-compose.local.yml logs claw-local --tail 20
+=======
+        $compose_cmd -f docker-compose.local.yml down 2>/dev/null || true
+        $compose_cmd -f docker-compose.local.yml build --no-cache
+        $compose_cmd -f docker-compose.local.yml up -d
+        
+        echo "⏳ Waiting for services..."
+        sleep 30
+        
+        # Test health
+        if curl -f http://localhost:8000/health 2>/dev/null; then
+            echo "✅ Services started successfully!"
+        else
+            echo "⚠️  Services may still be starting, check logs: $compose_cmd -f docker-compose.local.yml logs"
+>>>>>>> 9ce6ccf (Updated dockerScript)
         fi
         
         echo "🌐 API Server: http://localhost:8000"
@@ -132,6 +168,7 @@ case $choice in
     2)
         echo "🚀 Setting up standalone container with embedded MongoDB..."
         
+<<<<<<< HEAD
         echo "🔨 Building standalone with bcrypt fix..."
         $compose_cmd -f docker-compose.standalone.yml build --no-cache
         
@@ -161,12 +198,64 @@ case $choice in
             echo "⚠️  Service may still be starting, checking logs..."
             echo "📋 Standalone logs:"
             $compose_cmd -f docker-compose.standalone.yml logs claw-standalone --tail 30
+=======
+        # Pull MongoDB image for reference
+        docker pull mongo:7.0
+        
+        $compose_cmd -f docker-compose.standalone.yml down 2>/dev/null || true
+        $compose_cmd -f docker-compose.standalone.yml build --no-cache
+        $compose_cmd -f docker-compose.standalone.yml up -d
+        
+        echo "⏳ Waiting for services (this takes longer for embedded MongoDB)..."
+        sleep 45
+        
+        # Test health
+        if curl -f http://localhost:8000/health 2>/dev/null; then
+            echo "✅ Standalone service started successfully!"
+        else
+            echo "⚠️  Service may still be starting, check logs: $compose_cmd -f docker-compose.standalone.yml logs"
+>>>>>>> 9ce6ccf (Updated dockerScript)
         fi
         
         echo "🌐 API Server: http://localhost:8000"
         echo "📚 API Documentation: http://localhost:8000/docs"
         echo "🗄️  MongoDB: mongodb://localhost:27017/claw_api"
         ;;
+<<<<<<< HEAD
+=======
+    3)
+        echo "🚀 Setting up production-like environment..."
+        if [ ! -f .env ]; then
+            cp .env.local .env
+        fi
+        
+        # Pull all images first
+        echo "📥 Pulling required images..."
+        docker pull mongo:7.0
+        docker pull redis:7-alpine
+        docker pull nginx:alpine
+        
+        $compose_cmd down 2>/dev/null || true
+        $compose_cmd build --no-cache
+        $compose_cmd up -d
+        
+        echo "⏳ Waiting for all services..."
+        sleep 45
+        
+        # Test health
+        if curl -f http://localhost:8000/health 2>/dev/null; then
+            echo "✅ All services started successfully!"
+        else
+            echo "⚠️  Services may still be starting, check logs: $compose_cmd logs"
+        fi
+        
+        echo "🌐 API Server: http://localhost:8000"
+        echo "📚 API Documentation: http://localhost:8000/docs"
+        echo "🗄️  MongoDB: mongodb://admin:password123@localhost:27017/claw_api?authSource=admin"
+        echo "🔴 Redis: redis://localhost:6379"
+        echo "🤖 Ollama: http://localhost:11434"
+        ;;
+>>>>>>> 9ce6ccf (Updated dockerScript)
     *)
         echo "❌ Invalid choice"
         exit 1
@@ -174,7 +263,11 @@ case $choice in
 esac
 
 echo ""
+<<<<<<< HEAD
 echo "✅ Claw API local setup complete with bcrypt fix!"
+=======
+echo "✅ Claw API local setup complete!"
+>>>>>>> 9ce6ccf (Updated dockerScript)
 echo ""
 echo "🧪 Test the API:"
 echo "curl http://localhost:8000/health"
@@ -189,8 +282,11 @@ echo "- View logs: $compose_cmd logs -f"
 echo "- Stop services: $compose_cmd down"
 echo "- Restart: $compose_cmd restart"
 echo "- MongoDB shell: docker exec -it claw-mongodb-local mongosh claw_api"
+<<<<<<< HEAD
 echo ""
 echo "🔧 Troubleshooting:"
 echo "- If bcrypt issues persist: ./scripts/fix-bcrypt.sh"
 echo "- If build fails: $compose_cmd build --no-cache"
 echo "- View container logs: docker logs [container_name] -f"
+=======
+>>>>>>> 9ce6ccf (Updated dockerScript)

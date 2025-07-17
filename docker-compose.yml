@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Updated docker-compose with separate MongoDB service
 services:
   # MongoDB database (pre-built image)
@@ -8,21 +9,32 @@ services:
 =======
 version: '3.8'
 
+=======
+# Updated docker-compose with separate MongoDB service
+>>>>>>> 9ce6ccf (Updated dockerScript)
 services:
-  # MongoDB database
+  # MongoDB database (pre-built image)
   mongodb:
     image: mongo:7.0
+<<<<<<< HEAD
     container_name: v0-mongodb
 >>>>>>> d07d2a6 (Init API)
+=======
+    container_name: claw-mongodb
+>>>>>>> 9ce6ccf (Updated dockerScript)
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password123
 <<<<<<< HEAD
+<<<<<<< HEAD
       MONGO_INITDB_DATABASE: claw_api
 =======
       MONGO_INITDB_DATABASE: v0_clone
 >>>>>>> d07d2a6 (Init API)
+=======
+      MONGO_INITDB_DATABASE: claw_api
+>>>>>>> 9ce6ccf (Updated dockerScript)
     ports:
       - "27017:27017"
     volumes:
@@ -30,6 +42,9 @@ services:
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks:
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 9ce6ccf (Updated dockerScript)
       - claw-network
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ismaster')"]
@@ -37,18 +52,25 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+<<<<<<< HEAD
 =======
       - v0-network
 >>>>>>> d07d2a6 (Init API)
+=======
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
   # Redis for caching (optional)
   redis:
     image: redis:7-alpine
 <<<<<<< HEAD
+<<<<<<< HEAD
     container_name: claw-redis
 =======
     container_name: v0-redis
 >>>>>>> d07d2a6 (Init API)
+=======
+    container_name: claw-redis
+>>>>>>> 9ce6ccf (Updated dockerScript)
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -56,12 +78,16 @@ services:
       - redis_data:/data
     networks:
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 9ce6ccf (Updated dockerScript)
       - claw-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
+<<<<<<< HEAD
 
   # Main API application
   api:
@@ -77,6 +103,15 @@ services:
     build: .
     container_name: v0-api
 >>>>>>> d07d2a6 (Init API)
+=======
+
+  # Main API application
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: claw-api
+>>>>>>> 9ce6ccf (Updated dockerScript)
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -85,12 +120,17 @@ services:
       PORT: 8000
       HOST: 0.0.0.0
 <<<<<<< HEAD
+<<<<<<< HEAD
       MONGODB_URL: mongodb://admin:password123@mongodb:27017/claw_api?authSource=admin
       DB_NAME: claw_api
 =======
       MONGODB_URL: mongodb://admin:password123@mongodb:27017/v0_clone?authSource=admin
       DB_NAME: v0_clone
 >>>>>>> d07d2a6 (Init API)
+=======
+      MONGODB_URL: mongodb://admin:password123@mongodb:27017/claw_api?authSource=admin
+      DB_NAME: claw_api
+>>>>>>> 9ce6ccf (Updated dockerScript)
       WORKSPACE_DIR: /app/workspace
       
       # LLM API Keys (set these in your environment)
@@ -105,10 +145,14 @@ services:
       - ./logs:/app/logs
     depends_on:
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 9ce6ccf (Updated dockerScript)
       mongodb:
         condition: service_healthy
       redis:
         condition: service_healthy
+<<<<<<< HEAD
     networks:
       - claw-network
     healthcheck:
@@ -123,21 +167,36 @@ services:
     networks:
       - v0-network
 >>>>>>> d07d2a6 (Init API)
+=======
+    networks:
+      - claw-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
   # Ollama for local LLM (optional)
   ollama:
     image: ollama/ollama:latest
 <<<<<<< HEAD
+<<<<<<< HEAD
     container_name: claw-ollama
 =======
     container_name: v0-ollama
 >>>>>>> d07d2a6 (Init API)
+=======
+    container_name: claw-ollama
+>>>>>>> 9ce6ccf (Updated dockerScript)
     restart: unless-stopped
     ports:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     networks:
+<<<<<<< HEAD
 <<<<<<< HEAD
       - claw-network
 =======
@@ -151,15 +210,22 @@ services:
     #           count: 1
     #           capabilities: [gpu]
 >>>>>>> d07d2a6 (Init API)
+=======
+      - claw-network
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
   # Nginx reverse proxy (optional)
   nginx:
     image: nginx:alpine
 <<<<<<< HEAD
+<<<<<<< HEAD
     container_name: claw-nginx
 =======
     container_name: v0-nginx
 >>>>>>> d07d2a6 (Init API)
+=======
+    container_name: claw-nginx
+>>>>>>> 9ce6ccf (Updated dockerScript)
     restart: unless-stopped
     ports:
       - "80:80"
@@ -168,6 +234,7 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
     depends_on:
+<<<<<<< HEAD
 <<<<<<< HEAD
       api:
         condition: service_healthy
@@ -178,6 +245,12 @@ services:
     networks:
       - v0-network
 >>>>>>> d07d2a6 (Init API)
+=======
+      api:
+        condition: service_healthy
+    networks:
+      - claw-network
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
 volumes:
   mongodb_data:
@@ -187,8 +260,12 @@ volumes:
 
 networks:
 <<<<<<< HEAD
+<<<<<<< HEAD
   claw-network:
 =======
   v0-network:
 >>>>>>> d07d2a6 (Init API)
+=======
+  claw-network:
+>>>>>>> 9ce6ccf (Updated dockerScript)
     driver: bridge

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Local setup script for v0-like API with embedded MongoDB
 
 echo "🚀 Setting up v0-like API for local development..."
@@ -9,6 +10,11 @@ echo "🚀 Setting up v0-like API for local development..."
 
 echo "🚀 Setting up Claw API for local development..."
 >>>>>>> d07d2a6 (Init API)
+=======
+# Local setup script for v0-like API with embedded MongoDB
+
+echo "🚀 Setting up v0-like API for local development..."
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
@@ -58,10 +64,14 @@ cat > run-local.sh << 'EOF'
 #!/bin/bash
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 echo "🚀 Starting v0-like API in local development mode..."
 =======
 echo "🚀 Starting Claw API in local development mode..."
 >>>>>>> d07d2a6 (Init API)
+=======
+echo "🚀 Starting v0-like API in local development mode..."
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
 # Load environment variables
 if [ -f .env.local ]; then
@@ -118,10 +128,14 @@ chmod +x run-local.sh
 cat > stop-local.sh << 'EOF'
 #!/bin/bash
 <<<<<<< HEAD
+<<<<<<< HEAD
 echo "🛑 Stopping v0-like API local development..."
 =======
 echo "🛑 Stopping Claw API local development..."
 >>>>>>> d07d2a6 (Init API)
+=======
+echo "🛑 Stopping v0-like API local development..."
+>>>>>>> 9ce6ccf (Updated dockerScript)
 docker stop v0-local-dev 2>/dev/null || true
 docker rm v0-local-dev 2>/dev/null || true
 echo "✅ Stopped successfully!"

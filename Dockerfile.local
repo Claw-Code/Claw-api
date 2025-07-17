@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Fixed local development Dockerfile with proper bcrypt compilation
 FROM node:18-bullseye
 
@@ -7,6 +8,12 @@ FROM node:18-bullseye
 FROM ubuntu:22.04
 
 >>>>>>> d07d2a6 (Init API)
+=======
+# Local development Dockerfile - Single container with wait-for-it script
+FROM node:18-bullseye
+
+# Install system dependencies
+>>>>>>> 9ce6ccf (Updated dockerScript)
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -14,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     bash \
+<<<<<<< HEAD
 <<<<<<< HEAD
     wget \
     netcat-openbsd \
@@ -40,12 +48,18 @@ RUN npm install --legacy-peer-deps && \
     supervisor \
     mongodb-org-tools \
  && rm -rf /var/lib/apt/lists/*
+=======
+    wget \
+    netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
 WORKDIR /app
 
-# Create MongoDB directories
-RUN mkdir -p /data/db /var/log/mongodb /etc/supervisor/conf.d
-RUN chown -R mongodb:mongodb /data/db /var/log/mongodb
+# Install wait-for-it script
+RUN wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh \
+    && chmod +x wait-for-it.sh \
+    && mv wait-for-it.sh /usr/local/bin/
 
 # Copy package files
 COPY package*.json ./
@@ -60,6 +74,7 @@ COPY . .
 # Create workspace and logs directories
 RUN mkdir -p workspace/downloads logs
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 # Create startup script that waits for external MongoDB
 =======
@@ -124,10 +139,14 @@ RUN chmod +x /app/init-db.sh
 
 # Create startup script
 >>>>>>> d07d2a6 (Init API)
+=======
+# Create startup script that waits for external MongoDB
+>>>>>>> 9ce6ccf (Updated dockerScript)
 RUN cat > /app/start-local.sh << 'EOF'
 #!/bin/bash
 set -e
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 echo "🚀 Starting Claw API (waiting for external MongoDB)..."
 
@@ -146,20 +165,30 @@ echo "🌟 Starting API server..."
 npm run dev
 =======
 echo "🚀 Starting Claw API with embedded MongoDB..."
+=======
+echo "🚀 Starting Claw API (waiting for external MongoDB)..."
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
-# Start supervisor (MongoDB + API)
-supervisord -c /etc/supervisor/conf.d/supervisord.conf &
+# Wait for MongoDB to be ready
+echo "⏳ Waiting for MongoDB at ${MONGODB_HOST:-mongodb}:${MONGODB_PORT:-27017}..."
+wait-for-it.sh ${MONGODB_HOST:-mongodb}:${MONGODB_PORT:-27017} --timeout=60 --strict
 
-# Initialize database after MongoDB starts
-/app/init-db.sh &
+echo "✅ MongoDB is ready!"
 
+<<<<<<< HEAD
 # Keep container running
 wait
 >>>>>>> d07d2a6 (Init API)
+=======
+# Start the application
+echo "🌟 Starting API server..."
+npm run dev
+>>>>>>> 9ce6ccf (Updated dockerScript)
 EOF
 
 RUN chmod +x /app/start-local.sh
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 # Expose port
 EXPOSE 8000
@@ -175,6 +204,14 @@ EXPOSE 8000 27017
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -f http://localhost:8000/health && mongo --eval "db.adminCommand('ismaster')" || exit 1
 >>>>>>> d07d2a6 (Init API)
+=======
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
+>>>>>>> 9ce6ccf (Updated dockerScript)
 
 # Start services
 CMD ["/app/start-local.sh"]

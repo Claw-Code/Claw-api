@@ -1,18 +1,43 @@
 {
 <<<<<<< HEAD
+<<<<<<< HEAD
   "name": "my-v0-project",
 =======
   "name": "ClawAPI",
 >>>>>>> d07d2a6 (Init API)
   "version": "0.1.0",
   "private": true,
+=======
+  "name": "claw-api",
+  "version": "1.0.0",
+  "description": "AI-powered code generation API for gaming and development - Claw API",
+  "main": "dist/app.js",
+>>>>>>> 9ce6ccf (Updated dockerScript)
   "scripts": {
-    "build": "next build",
-    "dev": "next dev",
-    "lint": "next lint",
-    "start": "next start"
+    "dev": "tsx watch src/app.ts",
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "lint": "eslint src/**/*.ts",
+    "test": "jest",
+    "docker:build": "docker build -t claw-api .",
+    "docker:run": "docker-compose up -d",
+    "docker:stop": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "local:setup": "chmod +x scripts/setup-local.sh && ./scripts/setup-local.sh",
+    "local:start": "./run-local.sh",
+    "local:stop": "./stop-local.sh",
+    "local:test": "chmod +x scripts/test-local.sh && ./scripts/test-local.sh",
+    "local:mongo": "./mongo-shell.sh",
+    "local:logs": "docker logs claw-local-dev -f",
+    "local:clean": "docker stop claw-local-dev 2>/dev/null || true && docker rm claw-local-dev 2>/dev/null || true && docker rmi claw-local:latest 2>/dev/null || true",
+    "install:force": "npm install --legacy-peer-deps",
+    "install:clean": "rm -rf node_modules package-lock.json && npm install --legacy-peer-deps"
   },
+  "keywords": ["ai", "code-generation", "llm", "fastify", "mongodb", "docker", "gaming", "claw-api"],
+  "author": "Claw API Team",
+  "license": "MIT",
   "dependencies": {
+<<<<<<< HEAD
     "@aws-sdk/credential-providers": "latest",
     "@fastify/cors": "latest",
 <<<<<<< HEAD
@@ -89,13 +114,37 @@
     "uuid": "latest",
     "vaul": "^0.9.6",
     "zod": "^3.24.1"
+=======
+    "fastify": "^4.24.3",
+    "@fastify/cors": "^8.4.0",
+    "@fastify/swagger": "^8.12.0",
+    "@fastify/swagger-ui": "^2.1.0",
+    "mongodb": "^6.3.0",
+    "uuid": "^9.0.1",
+    "archiver": "^6.0.1",
+    "pino-pretty": "^10.2.3"
+>>>>>>> 9ce6ccf (Updated dockerScript)
   },
   "devDependencies": {
-    "@types/node": "^22",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "postcss": "^8.5",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5"
+    "@types/node": "^20.10.4",
+    "@types/uuid": "^9.0.7",
+    "@types/archiver": "^6.0.2",
+    "typescript": "^5.3.3",
+    "tsx": "^4.6.2",
+    "eslint": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.8"
+  },
+  "overrides": {
+    "date-fns": "^3.6.0"
+  },
+  "resolutions": {
+    "date-fns": "^3.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }
