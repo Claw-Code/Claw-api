@@ -1,6 +1,7 @@
 // MongoDB initialization script
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 const db = db.getSiblingDB(process.env.DB_NAME || "claw_api")
 =======
 const db = db.getSiblingDB("v0_clone")
@@ -8,6 +9,9 @@ const db = db.getSiblingDB("v0_clone")
 =======
 const db = db.getSiblingDB("claw_api")
 >>>>>>> 9ce6ccf (Updated dockerScript)
+=======
+const db = db.getSiblingDB(process.env.DB_NAME || "claw_api")
+>>>>>>> 19ce577 (convo fix and LLm tune)
 
 // Create collections
 db.createCollection("users")

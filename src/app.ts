@@ -4,6 +4,7 @@ import swagger from "@fastify/swagger"
 import swaggerUi from "@fastify/swagger-ui"
 import { database } from "./config/database"
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { setupAuth } from "./config/auth"
 import { authRoutes } from "./routes/auth"
 import { conversationRoutes } from "./routes/conversations"
@@ -11,6 +12,12 @@ import { conversationRoutes } from "./routes/conversations"
 import { authRoutes } from "./routes/auth"
 import { chatRoutes } from "./routes/chat"
 >>>>>>> d07d2a6 (Init API)
+=======
+import { setupAuth } from "./config/auth"
+import { authRoutes } from "./routes/auth"
+import { chatRoutes } from "./routes/chat"
+import { uploadRoutes } from "./routes/upload"
+>>>>>>> 19ce577 (convo fix and LLm tune)
 import { downloadRoutes } from "./routes/download"
 import { previewRoutes } from "./routes/preview"
 
@@ -24,11 +31,15 @@ const fastify = Fastify({
 })
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 19ce577 (convo fix and LLm tune)
 async function main() {
   // Connect to database
   await database.connect()
 
   // Register plugins
+<<<<<<< HEAD
   await fastify.register(cors, {
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps or curl)
@@ -898,31 +909,48 @@ async function registerPlugins() {
     origin: true,
     credentials: true,
   })
+=======
+  await fastify.register(cors, { origin: true, credentials: true })
+  await setupAuth(fastify)
+>>>>>>> 19ce577 (convo fix and LLm tune)
 
   // Swagger documentation
   await fastify.register(swagger, {
     swagger: {
       info: {
-        title: "Claw API",
-        description: "AI-powered code generation API for gaming and development",
-        version: "1.0.0",
+        title: "Claw API v2",
+        description: "Advanced AI-powered code generation API with auth, versioning, and more.",
+        version: "2.0.0",
       },
       host: "localhost:8000",
-      schemes: ["http", "https"],
+      schemes: ["http"],
       consumes: ["application/json"],
       produces: ["application/json"],
       tags: [
-        { name: "Authentication", description: "User authentication endpoints" },
-        { name: "Chat", description: "Chat and code generation endpoints" },
+        { name: "Authentication", description: "User authentication and profile" },
+        { name: "Chat", description: "Core chat and message management" },
+        { name: "Upload", description: "File uploads for LLM context" },
         { name: "Download", description: "Code download endpoints" },
         { name: "Preview", description: "Code preview endpoints" },
       ],
+<<<<<<< HEAD
 >>>>>>> d07d2a6 (Init API)
+=======
+      securityDefinitions: {
+        bearerAuth: {
+          type: "apiKey",
+          name: "Authorization",
+          in: "header",
+          description: "Enter your JWT token in the format 'Bearer <token>'",
+        },
+      },
+>>>>>>> 19ce577 (convo fix and LLm tune)
     },
   })
 
   await fastify.register(swaggerUi, {
     routePrefix: "/docs",
+<<<<<<< HEAD
     uiConfig: {
 <<<<<<< HEAD
       docExpansion: "list",
@@ -1258,61 +1286,42 @@ curl -X GET http://localhost:8000/api/download/{downloadId} \\
       docExpansion: "full",
       deepLinking: false,
     },
+=======
+    uiConfig: { docExpansion: "full", deepLinking: false },
+>>>>>>> 19ce577 (convo fix and LLm tune)
   })
-}
 
-// Register routes
-async function registerRoutes() {
+  // Register routes
   await fastify.register(authRoutes, { prefix: "/api/auth" })
-  await fastify.register(chatRoutes, { prefix: "/api/chat" })
+  await fastify.register(chatRoutes, { prefix: "/api/chats" })
+  await fastify.register(uploadRoutes, { prefix: "/api/uploads" })
   await fastify.register(downloadRoutes, { prefix: "/api/download" })
   await fastify.register(previewRoutes, { prefix: "/api/preview" })
-}
 
-// Health check
-fastify.get("/health", async (request, reply) => {
-  return {
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  }
-})
+  // Health check
+  fastify.get("/health", async () => ({ status: "ok" }))
 
-// Root endpoint
-fastify.get("/", async (request, reply) => {
-  return {
-    message: "Claw API Server",
-    version: "1.0.0",
-    docs: "/docs",
-    health: "/health",
-  }
-})
-
-// Start server
-async function start() {
+  // Start server
   try {
-    // Connect to database
-    await database.connect()
-
-    // Register plugins and routes
-    await registerPlugins()
-    await registerRoutes()
-
-    // Start server
     const port = Number.parseInt(process.env.PORT || "8000")
     const host = process.env.HOST || "0.0.0.0"
-
     await fastify.listen({ port, host })
+<<<<<<< HEAD
 
     console.log(`🚀 Server running at http://${host}:${port}`)
     console.log(`📚 API Documentation: http://${host}:${port}/docs`)
   } catch (error) {
     fastify.log.error(error)
 >>>>>>> d07d2a6 (Init API)
+=======
+  } catch (err) {
+    fastify.log.error(err)
+>>>>>>> 19ce577 (convo fix and LLm tune)
     process.exit(1)
   }
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 main()
 =======
@@ -1326,3 +1335,6 @@ process.on("SIGINT", async () => {
 
 start()
 >>>>>>> d07d2a6 (Init API)
+=======
+main()
+>>>>>>> 19ce577 (convo fix and LLm tune)

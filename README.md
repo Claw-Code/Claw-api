@@ -1,8 +1,13 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 > **⚠️ Important Note:** This is a **backend-only API** built with Fastify. It is **NOT** a Next.js application. Do not run it with `next dev`. Use the provided npm scripts like `npm run dev` to start the server correctly.
 
 =======
 >>>>>>> 9ce6ccf (Updated dockerScript)
+=======
+> **⚠️ Important Note:** This is a **backend-only API** built with Fastify. It is **NOT** a Next.js application. Do not run it with `next dev`. Use the provided npm scripts like `npm run dev` to start the server correctly.
+
+>>>>>>> 19ce577 (convo fix and LLm tune)
 # 🦅 Claw API
 
 AI-powered code generation API for gaming and development, specializing in 2D and 3D game development with modern web technologies.
@@ -92,10 +97,14 @@ curl -X POST http://localhost:8000/api/auth/register \
 ### Create a 3D Game
 \`\`\`bash
 <<<<<<< HEAD
+<<<<<<< HEAD
 curl -X POST http://localhost:8000/api/chats/CHAT_ID/messages \
 =======
 curl -X POST http://localhost:8000/api/chat/CHAT_ID/message \
 >>>>>>> 9ce6ccf (Updated dockerScript)
+=======
+curl -X POST http://localhost:8000/api/chats/CHAT_ID/messages \
+>>>>>>> 19ce577 (convo fix and LLm tune)
   -H "Content-Type: application/json" \
   -d '{
     "content": "Create a 3D cube game with Three.js where the player can rotate the cube with mouse controls",
@@ -106,10 +115,14 @@ curl -X POST http://localhost:8000/api/chat/CHAT_ID/message \
 ### Create a 2D Platformer
 \`\`\`bash
 <<<<<<< HEAD
+<<<<<<< HEAD
 curl -X POST http://localhost:8000/api/chats/CHAT_ID/messages \
 =======
 curl -X POST http://localhost:8000/api/chat/CHAT_ID/message \
 >>>>>>> 9ce6ccf (Updated dockerScript)
+=======
+curl -X POST http://localhost:8000/api/chats/CHAT_ID/messages \
+>>>>>>> 19ce577 (convo fix and LLm tune)
   -H "Content-Type: application/json" \
   -d '{
     "content": "Create a 2D platformer game with Phaser.js including player movement, jumping, and collision detection",
@@ -127,10 +140,14 @@ npm run local:start      # Start local container
 npm run local:stop       # Stop local container
 npm run local:test       # Run tests
 <<<<<<< HEAD
+<<<<<<< HEAD
 npm run local:mongo      # Access MongoDB shell (for local setup)
 =======
 npm run local:mongo      # Access MongoDB shell
 >>>>>>> 9ce6ccf (Updated dockerScript)
+=======
+npm run local:mongo      # Access MongoDB shell (for local setup)
+>>>>>>> 19ce577 (convo fix and LLm tune)
 npm run local:logs       # View container logs
 npm run local:clean      # Clean up containers
 \`\`\`

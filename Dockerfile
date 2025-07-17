@@ -56,9 +56,14 @@ FROM base AS development
 # Copy package files
 COPY package*.json ./
 
+<<<<<<< HEAD
 # Install all dependencies (including dev)
 RUN npm install
 >>>>>>> d07d2a6 (Init API)
+=======
+# Install all dependencies with legacy peer deps to avoid conflicts
+RUN npm install --legacy-peer-deps
+>>>>>>> 19ce577 (convo fix and LLm tune)
 
 # Copy source code
 COPY . .
@@ -143,9 +148,14 @@ RUN npm ci --only=production --legacy-peer-deps && \
 # Copy package files
 COPY package*.json ./
 
+<<<<<<< HEAD
 # Install only production dependencies
 RUN npm ci --only=production
 >>>>>>> d07d2a6 (Init API)
+=======
+# Install only production dependencies with legacy peer deps
+RUN npm ci --only=production --legacy-peer-deps
+>>>>>>> 19ce577 (convo fix and LLm tune)
 
 # Copy built application
 COPY . .

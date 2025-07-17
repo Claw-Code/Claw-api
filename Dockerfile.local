@@ -64,9 +64,14 @@ RUN wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for
 # Copy package files
 COPY package*.json ./
 
+<<<<<<< HEAD
 # Install dependencies
 RUN npm install
 >>>>>>> d07d2a6 (Init API)
+=======
+# Install dependencies with legacy peer deps to avoid conflicts
+RUN npm install --legacy-peer-deps
+>>>>>>> 19ce577 (convo fix and LLm tune)
 
 # Copy source code
 COPY . .

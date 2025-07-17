@@ -62,9 +62,14 @@ RUN chown -R mongodb:mongodb /data/db /var/log/mongodb
 # Copy package files
 COPY package*.json ./
 
+<<<<<<< HEAD
 # Install dependencies
 RUN npm install
 >>>>>>> 9ce6ccf (Updated dockerScript)
+=======
+# Install dependencies with legacy peer deps to avoid conflicts
+RUN npm install --legacy-peer-deps
+>>>>>>> 19ce577 (convo fix and LLm tune)
 
 # Copy source code
 COPY . .
