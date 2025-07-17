@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # All-in-one local development container
+  v0-local:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    container_name: v0-local-dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"   # API
+      - "27017:27017" # MongoDB (for external access)
+    environment:
+      NODE_ENV: development
+      PORT: 8000
+      HOST: 0.0.0.0
+      MONGODB_URL: mongodb://localhost:27017/v0_clone
+      DB_NAME: v0_clone
+      WORKSPACE_DIR: /app/workspace
+      
+      # LLM API Keys (set these in your .env file)
+      HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OLLAMA_URL: http://localhost:11434
+    volumes:
+      - ./src:/app/src:ro  # Mount source for hot reload
+      - ./logs:/app/logs
+      - workspace_data:/app/workspace
+      - mongodb_local_data:/data/db
+    networks:
+      - v0-local-network
+
+  # Optional: Ollama for local LLM
+  ollama-local:
+    image: ollama/ollama:latest
+    container_name: v0-ollama-local
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_local_data:/root/.ollama
+    networks:
+      - v0-local-network
+
+volumes:
+  workspace_data:
+  mongodb_local_data:
+  ollama_local_data:
+
+networks:
+  v0-local-network:
+    driver: bridge
