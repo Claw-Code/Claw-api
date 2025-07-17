@@ -29,19 +29,40 @@ export async function conversationRoutes(fastify: FastifyInstance) {
           type: "object",
           required: ["title"],
           properties: {
-            title: { type: "string", minLength: 1, maxLength: 200 },
+            title: {
+              type: "string",
+              minLength: 1,
+              maxLength: 200,
+              description: "Conversation title (your first game idea/prompt)",
+              example: "Space Shooter with Power-ups and Boss Battles",
+            },
           },
         },
         response: {
           201: {
             type: "object",
             properties: {
-              _id: { type: "string" },
-              title: { type: "string" },
-              userId: { type: "string" },
-              messages: { type: "array" },
-              createdAt: { type: "string", format: "date-time" },
-              updatedAt: { type: "string", format: "date-time" },
+              success: { type: "boolean", example: true },
+              data: {
+                type: "object",
+                properties: {
+                  _id: { type: "string", example: "507f1f77bcf86cd799439012" },
+                  title: { type: "string", example: "Space Shooter with Power-ups and Boss Battles" },
+                  userId: { type: "string", example: "507f1f77bcf86cd799439011" },
+                  messages: { type: "array", items: {}, example: [] },
+                  createdAt: { type: "string", format: "date-time" },
+                  updatedAt: { type: "string", format: "date-time" },
+                },
+              },
+              message: { type: "string", example: "Conversation created successfully" },
+            },
+          },
+          401: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: false },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Authentication required" },
             },
           },
         },
@@ -51,7 +72,11 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       const { userId } = request.user as AuthPayload
       const { title } = request.body
       const conversation = await conversationModel.create(userId, title)
-      reply.code(201).send(conversation)
+      reply.code(201).send({
+        success: true,
+        data: conversation,
+        message: "Conversation created successfully",
+      })
     },
   )
 
@@ -66,13 +91,19 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         security: [{ bearerAuth: [] }],
         response: {
           200: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                _id: { type: "string" },
-                title: { type: "string" },
-                updatedAt: { type: "string", format: "date-time" },
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: true },
+              data: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    _id: { type: "string", example: "507f1f77bcf86cd799439012" },
+                    title: { type: "string", example: "Space Shooter with Power-ups and Boss Battles" },
+                    updatedAt: { type: "string", format: "date-time" },
+                  },
+                },
               },
             },
           },
@@ -82,7 +113,10 @@ export async function conversationRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { userId } = request.user as AuthPayload
       const conversations = await conversationModel.findByUserId(userId)
-      reply.send(conversations)
+      reply.send({
+        success: true,
+        data: conversations,
+      })
     },
   )
 
@@ -98,7 +132,34 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         params: {
           type: "object",
           properties: {
-            conversationId: { type: "string" },
+            conversationId: { type: "string", description: "Conversation ID" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: true },
+              data: {
+                type: "object",
+                properties: {
+                  _id: { type: "string" },
+                  userId: { type: "string" },
+                  title: { type: "string" },
+                  messages: { type: "array", items: {} },
+                  createdAt: { type: "string", format: "date-time" },
+                  updatedAt: { type: "string", format: "date-time" },
+                },
+              },
+            },
+          },
+          404: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: false },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "Conversation not found" },
+            },
           },
         },
       },
@@ -108,7 +169,11 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       const conversation = await conversationModel.findById(conversationId)
 
       if (!conversation || conversation.userId.toString() !== (request.user as AuthPayload).userId) {
-        return reply.code(404).send({ error: "Conversation not found" })
+        return reply.code(404).send({
+          success: false,
+          error: "Not Found",
+          message: "Conversation not found",
+        })
       }
 
       // Load attachments for each message
@@ -116,7 +181,10 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         message.attachments = await attachmentModel.findByMessageId(message._id.toString())
       }
 
-      reply.send(conversation)
+      reply.send({
+        success: true,
+        data: conversation,
+      })
     },
   )
 
@@ -135,7 +203,44 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         params: {
           type: "object",
           properties: {
-            conversationId: { type: "string" },
+            conversationId: { type: "string", description: "Conversation ID" },
+          },
+        },
+        response: {
+          201: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: true },
+              data: {
+                type: "object",
+                properties: {
+                  _id: { type: "string" },
+                  conversationId: { type: "string" },
+                  role: { type: "string", enum: ["user", "assistant"] },
+                  content: { type: "array", items: {} },
+                  attachments: { type: "array", items: {} },
+                  createdAt: { type: "string", format: "date-time" },
+                  updatedAt: { type: "string", format: "date-time" },
+                },
+              },
+              message: { type: "string", example: "Message sent successfully. AI response is being generated..." },
+            },
+          },
+          404: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: false },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "Conversation not found" },
+            },
+          },
+          400: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: false },
+              error: { type: "string", example: "Bad Request" },
+              message: { type: "string", example: "Message text is required" },
+            },
           },
         },
       },
@@ -146,7 +251,11 @@ export async function conversationRoutes(fastify: FastifyInstance) {
 
       const conversation = await conversationModel.findById(conversationId)
       if (!conversation || conversation.userId.toString() !== userId) {
-        return reply.code(404).send({ error: "Conversation not found" })
+        return reply.code(404).send({
+          success: false,
+          error: "Not Found",
+          message: "Conversation not found",
+        })
       }
 
       // Parse multipart form data
@@ -172,7 +281,11 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       }
 
       if (!messageText.trim()) {
-        return reply.code(400).send({ error: "Message text is required" })
+        return reply.code(400).send({
+          success: false,
+          error: "Bad Request",
+          message: "Message text is required",
+        })
       }
 
       // Create user message
@@ -190,7 +303,11 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       })
 
       if (!updatedConversation) {
-        return reply.code(500).send({ error: "Failed to add message" })
+        return reply.code(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Failed to add message",
+        })
       }
 
       const userMessage = updatedConversation.messages[updatedConversation.messages.length - 1]
@@ -220,7 +337,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
 
           // Use enhanced service with self-correction
           const llmResponseText = await llmService.generateCode(messageText, {
-            framework: "kaboom.js", // Focus on Kaboom.js
+            framework: "phaser.js", // Focus on Phaser.js
             attachments: attachmentContext,
           })
 
@@ -250,7 +367,11 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         }
       })
 
-      reply.code(201).send(updatedConversation)
+      reply.code(201).send({
+        success: true,
+        data: userMessage,
+        message: "Message sent successfully. AI response is being generated...",
+      })
     },
   )
 
@@ -274,7 +395,38 @@ export async function conversationRoutes(fastify: FastifyInstance) {
           type: "object",
           required: ["text"],
           properties: {
-            text: { type: "string", minLength: 1 },
+            text: {
+              type: "string",
+              minLength: 1,
+              maxLength: 5000,
+              description: "Updated message content",
+              example:
+                "Create a space shooter game with enemy ships, power-ups, boss battles, and a high score system.",
+            },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: true },
+              data: {
+                type: "object",
+                properties: {
+                  _id: { type: "string" },
+                  content: { type: "array", items: {} },
+                  updatedAt: { type: "string", format: "date-time" },
+                },
+              },
+            },
+          },
+          404: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: false },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "Conversation or message not found" },
+            },
           },
         },
       },
@@ -286,15 +438,26 @@ export async function conversationRoutes(fastify: FastifyInstance) {
 
       const conversation = await conversationModel.findById(conversationId)
       if (!conversation || conversation.userId.toString() !== userId) {
-        return reply.code(404).send({ error: "Conversation not found" })
+        return reply.code(404).send({
+          success: false,
+          error: "Not Found",
+          message: "Conversation not found",
+        })
       }
 
       const updatedConversation = await conversationModel.editMessageContent(conversationId, messageId, text)
       if (!updatedConversation) {
-        return reply.code(404).send({ error: "Message not found" })
+        return reply.code(404).send({
+          success: false,
+          error: "Not Found",
+          message: "Message not found",
+        })
       }
 
-      reply.send(updatedConversation)
+      reply.send({
+        success: true,
+        data: updatedConversation,
+      })
     },
   )
 
@@ -307,6 +470,30 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         tags: ["Messages"],
         description: "Get all attachments for a message",
         security: [{ bearerAuth: [] }],
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: true },
+              data: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    _id: { type: "string" },
+                    messageId: { type: "string" },
+                    filename: { type: "string" },
+                    originalName: { type: "string" },
+                    mimetype: { type: "string" },
+                    size: { type: "integer" },
+                    uploadedAt: { type: "string", format: "date-time" },
+                    downloadUrl: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
     async (request, reply) => {
@@ -315,11 +502,18 @@ export async function conversationRoutes(fastify: FastifyInstance) {
 
       const conversation = await conversationModel.findById(conversationId)
       if (!conversation || conversation.userId.toString() !== userId) {
-        return reply.code(404).send({ error: "Conversation not found" })
+        return reply.code(404).send({
+          success: false,
+          error: "Not Found",
+          message: "Conversation not found",
+        })
       }
 
       const attachments = await attachmentModel.findByMessageId(messageId)
-      reply.send(attachments)
+      reply.send({
+        success: true,
+        data: attachments,
+      })
     },
   )
 
@@ -332,6 +526,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         tags: ["Messages"],
         description: "Download a message attachment",
         security: [{ bearerAuth: [] }],
+        produces: ["application/octet-stream"],
       },
     },
     async (request, reply) => {
@@ -340,12 +535,20 @@ export async function conversationRoutes(fastify: FastifyInstance) {
 
       const conversation = await conversationModel.findById(conversationId)
       if (!conversation || conversation.userId.toString() !== userId) {
-        return reply.code(404).send({ error: "Conversation not found" })
+        return reply.code(404).send({
+          success: false,
+          error: "Not Found",
+          message: "Conversation not found",
+        })
       }
 
       const attachment = await attachmentModel.findById(attachmentId)
       if (!attachment) {
-        return reply.code(404).send({ error: "Attachment not found" })
+        return reply.code(404).send({
+          success: false,
+          error: "Not Found",
+          message: "Attachment not found",
+        })
       }
 
       const downloadStream = attachmentModel.getDownloadStream(attachment.gridfsId)
