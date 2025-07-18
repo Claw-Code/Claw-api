@@ -5,6 +5,15 @@ import { LLMService } from "../services/llm/LLMService"
 import { CodeCompiler } from "../services/CodeCompiler"
 import type { AuthPayload, MessageContent, LLMResponse } from "../types"
 import multipart from "@fastify/multipart"
+import type { Writable } from "stream"
+
+// Global stream storage (in production, use Redis Pub/Sub)
+declare global {
+  var activeStreams: Map<string, Writable> | undefined
+}
+if (!global.activeStreams) {
+  global.activeStreams = new Map()
+}
 
 export async function conversationRoutes(fastify: FastifyInstance) {
   await fastify.register(multipart)
@@ -14,7 +23,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
   const llmService = new LLMService()
   const codeCompiler = new CodeCompiler()
 
-  // --- Conversation Management ---
+  // --- CONVERSATION MANAGEMENT ---
 
   // Create new conversation
   fastify.post<{ Body: { title: string } }>(
@@ -23,7 +32,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       onRequest: [fastify.authenticate],
       schema: {
         tags: ["Conversations"],
-        description: "Create a new conversation",
+        description: "Create a new conversation for a game project",
         security: [{ bearerAuth: [] }],
         body: {
           type: "object",
@@ -33,12 +42,13 @@ export async function conversationRoutes(fastify: FastifyInstance) {
               type: "string",
               minLength: 1,
               maxLength: 200,
-              description: "Conversation title (your first game idea/prompt)",
+              description: "The initial idea/title for your game project",
             },
           },
         },
         response: {
           201: {
+            description: "Conversation created successfully",
             type: "object",
             properties: {
               success: { type: "boolean" },
@@ -46,8 +56,8 @@ export async function conversationRoutes(fastify: FastifyInstance) {
                 type: "object",
                 properties: {
                   _id: { type: "string" },
-                  title: { type: "string" },
                   userId: { type: "string" },
+                  title: { type: "string" },
                   messages: { type: "array", items: {} },
                   createdAt: { type: "string", format: "date-time" },
                   updatedAt: { type: "string", format: "date-time" },
@@ -56,7 +66,17 @@ export async function conversationRoutes(fastify: FastifyInstance) {
               message: { type: "string" },
             },
           },
+          400: {
+            description: "Invalid request data",
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              error: { type: "string" },
+              message: { type: "string" },
+            },
+          },
           401: {
+            description: "Authentication required",
             type: "object",
             properties: {
               success: { type: "boolean" },
@@ -70,12 +90,21 @@ export async function conversationRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { userId } = request.user as AuthPayload
       const { title } = request.body
-      const conversation = await conversationModel.create(userId, title)
-      reply.code(201).send({
-        success: true,
-        data: conversation,
-        message: "Conversation created successfully",
-      })
+
+      try {
+        const conversation = await conversationModel.create(userId, title)
+        reply.code(201).send({
+          success: true,
+          data: conversation,
+          message: "Conversation created successfully",
+        })
+      } catch (error) {
+        reply.code(500).send({
+          success: false,
+          error: "InternalServerError",
+          message: "Failed to create conversation",
+        })
+      }
     },
   )
 
@@ -86,10 +115,11 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       onRequest: [fastify.authenticate],
       schema: {
         tags: ["Conversations"],
-        description: "List all conversations for the authenticated user",
+        description: "List all conversations for the authenticated user (summary view)",
         security: [{ bearerAuth: [] }],
         response: {
           200: {
+            description: "List of user's conversations",
             type: "object",
             properties: {
               success: { type: "boolean" },
@@ -126,16 +156,17 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       onRequest: [fastify.authenticate],
       schema: {
         tags: ["Conversations"],
-        description: "Get a single conversation with all messages and attachments",
+        description: "Get a single conversation with complete message history and attachments",
         security: [{ bearerAuth: [] }],
         params: {
           type: "object",
           properties: {
-            conversationId: { type: "string", description: "Conversation ID" },
+            conversationId: { type: "string", description: "The conversation ID" },
           },
         },
         response: {
           200: {
+            description: "Complete conversation with all messages",
             type: "object",
             properties: {
               success: { type: "boolean" },
@@ -145,7 +176,77 @@ export async function conversationRoutes(fastify: FastifyInstance) {
                   _id: { type: "string" },
                   userId: { type: "string" },
                   title: { type: "string" },
-                  messages: { type: "array", items: {} },
+                  messages: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        _id: { type: "string" },
+                        role: { type: "string", enum: ["user", "assistant"] },
+                        content: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              version: { type: "integer" },
+                              text: { type: "string" },
+                              editedAt: { type: "string", format: "date-time" },
+                            },
+                          },
+                        },
+                        llmResponse: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              version: { type: "integer" },
+                              provider: { type: "string" },
+                              textResponse: { type: "string" },
+                              thinking: { type: "string" },
+                              codeResponse: {
+                                type: "object",
+                                properties: {
+                                  files: {
+                                    type: "array",
+                                    items: {
+                                      type: "object",
+                                      properties: {
+                                        path: { type: "string" },
+                                        content: { type: "string" },
+                                        type: { type: "string" },
+                                        language: { type: "string" },
+                                      },
+                                    },
+                                  },
+                                  framework: { type: "string" },
+                                  language: { type: "string" },
+                                  previewUrl: { type: "string" },
+                                  downloadUrl: { type: "string" },
+                                },
+                              },
+                              status: { type: "string", enum: ["generating", "completed", "error", "verified"] },
+                              error: { type: "string" },
+                              createdAt: { type: "string", format: "date-time" },
+                            },
+                          },
+                        },
+                        attachments: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              _id: { type: "string" },
+                              filename: { type: "string" },
+                              mimetype: { type: "string" },
+                              size: { type: "integer" },
+                            },
+                          },
+                        },
+                        createdAt: { type: "string", format: "date-time" },
+                        updatedAt: { type: "string", format: "date-time" },
+                      },
+                    },
+                  },
                   createdAt: { type: "string", format: "date-time" },
                   updatedAt: { type: "string", format: "date-time" },
                 },
@@ -153,6 +254,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
             },
           },
           404: {
+            description: "Conversation not found or access denied",
             type: "object",
             properties: {
               success: { type: "boolean" },
@@ -171,7 +273,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({
           success: false,
           error: "Not Found",
-          message: "Conversation not found",
+          message: "Conversation not found or access denied",
         })
       }
 
@@ -187,45 +289,58 @@ export async function conversationRoutes(fastify: FastifyInstance) {
     },
   )
 
-  // --- Message Management ---
+  // --- MESSAGE MANAGEMENT & STREAMING ---
 
-  // Add message with optional attachments
+  // Send message and initiate streaming generation
   fastify.post<{ Params: { conversationId: string } }>(
     "/:conversationId/messages",
     {
       onRequest: [fastify.authenticate],
       schema: {
         tags: ["Messages"],
-        description: "Add a new message to conversation with optional file attachments",
+        description: `Send a message to initiate AI game generation with real-time streaming.
+
+**Workflow:**
+1. Send this POST request with your game prompt
+2. Receive a streamUrl in the response
+3. Connect to the streamUrl using EventSource for real-time updates
+4. Receive live updates as the AI generates your game
+
+**File Attachments:**
+- Up to 5 files per message
+- Max 50MB total size
+- Supported: images, code files, documents
+- Used as context for game generation`,
         security: [{ bearerAuth: [] }],
         consumes: ["multipart/form-data"],
         params: {
           type: "object",
           properties: {
-            conversationId: { type: "string", description: "Conversation ID" },
+            conversationId: { type: "string", description: "The conversation ID" },
           },
         },
         response: {
           201: {
+            description: "Message created and stream initiated successfully",
             type: "object",
             properties: {
               success: { type: "boolean" },
               data: {
                 type: "object",
                 properties: {
-                  _id: { type: "string" },
-                  conversationId: { type: "string" },
-                  role: { type: "string", enum: ["user", "assistant"] },
-                  content: { type: "array", items: {} },
-                  attachments: { type: "array", items: {} },
-                  createdAt: { type: "string", format: "date-time" },
-                  updatedAt: { type: "string", format: "date-time" },
+                  messageId: { type: "string", description: "The ID of the created user message" },
+                  conversationId: { type: "string", description: "The conversation ID" },
+                  streamUrl: {
+                    type: "string",
+                    description: "Connect to this URL with EventSource for real-time updates",
+                  },
                 },
               },
               message: { type: "string" },
             },
           },
-          404: {
+          400: {
+            description: "Invalid request data",
             type: "object",
             properties: {
               success: { type: "boolean" },
@@ -233,7 +348,17 @@ export async function conversationRoutes(fastify: FastifyInstance) {
               message: { type: "string" },
             },
           },
-          400: {
+          404: {
+            description: "Conversation not found",
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              error: { type: "string" },
+              message: { type: "string" },
+            },
+          },
+          413: {
+            description: "File too large",
             type: "object",
             properties: {
               success: { type: "boolean" },
@@ -253,23 +378,25 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({
           success: false,
           error: "Not Found",
-          message: "Conversation not found",
+          message: "Conversation not found or access denied",
         })
       }
 
-      // Parse multipart form data
       const parts = request.parts()
       let messageText = ""
+      let framework = "phaser.js"
       const attachments: any[] = []
 
       for await (const part of parts) {
-        if (part.type === "field" && part.fieldname === "text") {
-          messageText = part.value as string
+        if (part.type === "field") {
+          if (part.fieldname === "text") {
+            messageText = part.value as string
+          } else if (part.fieldname === "framework") {
+            framework = part.value as string
+          }
         } else if (part.type === "file") {
-          // Upload file to GridFS
           const uploadStream = attachmentModel.getUploadStream(part.filename || "unknown")
           await part.file.pipe(uploadStream)
-
           attachments.push({
             filename: part.filename,
             mimetype: part.mimetype,
@@ -282,12 +409,11 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       if (!messageText.trim()) {
         return reply.code(400).send({
           success: false,
-          error: "Bad Request",
+          error: "ValidationError",
           message: "Message text is required",
         })
       }
 
-      // Create user message
       const messageContent: MessageContent = {
         version: 1,
         text: messageText,
@@ -298,20 +424,19 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         conversationId: conversation._id!,
         role: "user",
         content: [messageContent],
-        attachments: [],
       })
 
       if (!updatedConversation) {
         return reply.code(500).send({
           success: false,
-          error: "Internal Server Error",
+          error: "InternalServerError",
           message: "Failed to add message",
         })
       }
 
       const userMessage = updatedConversation.messages[updatedConversation.messages.length - 1]
 
-      // Save attachments linked to message
+      // Save attachments
       for (const attachment of attachments) {
         await attachmentModel.create(
           userMessage._id.toString(),
@@ -323,72 +448,168 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         )
       }
 
-      // Generate LLM response with proper error handling asynchronously
-      setImmediate(async () => {
-        try {
-          console.log(`🤖 Starting LLM generation for message: ${messageText.substring(0, 100)}...`)
-
-          // Prepare context with attachments
-          const attachmentContext = await Promise.all(
-            attachments.map(async (att) => ({
-              filename: att.filename,
-              content: "File content would be extracted here", // TODO: Extract file content
-            })),
-          )
-
-          // Use enhanced service with self-correction
-          const llmResponseText = await llmService.generateCode(messageText, {
-            framework: "phaser.js", // Focus on Phaser.js
-            attachments: attachmentContext,
-          })
-
-          console.log(`✅ LLM response generated, parsing...`)
-
-          // Parse structured response
-          let parsedResponse
-          try {
-            parsedResponse = JSON.parse(llmResponseText)
-          } catch (parseError) {
-            console.error("Failed to parse LLM response:", parseError)
-            throw new Error("Invalid response format from LLM service")
-          }
-
-          // Create properly structured LLM response
-          const llmResponse: Omit<LLMResponse, "version" | "createdAt"> = {
-            provider: "groq",
-            textResponse: parsedResponse.textResponse || "Response generated",
-            codeResponse: parsedResponse.codeResponse,
-            thinking: parsedResponse.thinking,
-            status: parsedResponse.status || (parsedResponse.error ? "error" : "completed"),
-            error: parsedResponse.error,
-          }
-
-          console.log(`💾 Saving LLM response to database...`)
-          await conversationModel.addLLMResponse(conversationId, userMessage._id.toString(), llmResponse)
-          console.log(`✅ LLM response saved successfully`)
-        } catch (error) {
-          console.error("❌ LLM generation failed:", error)
-
-          // Create structured error response
-          const errorResponse: Omit<LLMResponse, "version" | "createdAt"> = {
-            provider: "groq",
-            textResponse:
-              "I apologize, but I encountered an error while generating your game. Please try again with a more specific request.",
-            status: "error",
-            error: error instanceof Error ? error.message : "Unknown error occurred",
-            thinking:
-              "An error occurred during the generation process. This might be due to API connectivity issues or invalid input.",
-          }
-
-          await conversationModel.addLLMResponse(conversationId, userMessage._id.toString(), errorResponse)
-          console.log(`💾 Error response saved to database`)
-        }
-      })
-
       reply.code(201).send({
         success: true,
-        data: userMessage,
-        message: "Message sent successfully. AI response is being generated...",
+        data: {
+          messageId: userMessage._id.toString(),
+          conversationId,
+          streamUrl: `/api/conversations/${conversationId}/messages/${userMessage._id}/stream`,
+        },
+        message: "Message sent successfully. Connect to streamUrl for real-time generation updates.",
+      })
+
+      // Start streaming generation asynchronously with better error handling
+      console.log(`🚀 STREAM: Starting generation for message ${userMessage._id}`)
+
+      // Use setTimeout instead of setImmediate for better error handling
+      setTimeout(() => {
+        startStreamingGeneration(conversationId, userMessage._id.toString(), messageText, framework, attachments).catch(
+          (error) => {
+            console.error(`❌ STREAM: Generation failed for message ${userMessage._id}:`, error)
+
+            // Try to send error to stream if still active
+            const streamKey = `${conversationId}:${userMessage._id}`
+            const stream = global.activeStreams.get(streamKey)
+            if (stream && !stream.destroyed) {
+              try {
+                stream.write(
+                  `data: ${JSON.stringify({
+                    type: "error",
+                    error: "Generation failed",
+                    details: error.message,
+                  })}\n\n`,
+                )
+                stream.write(`data: ${JSON.stringify({ type: "end" })}\n\n`)
+                stream.end()
+              } catch (streamError) {
+                console.error("Failed to send error to stream:", streamError)
+              }
+            }
+          },
+        )
+      }, 100) // Small delay to ensure response is sent first
+    },
+  )
+
+  // Server-Sent Events streaming endpoint
+  fastify.get<{ Params: { conversationId: string; messageId: string } }>(
+    "/:conversationId/messages/:messageId/stream",
+    {
+      onRequest: [fastify.authenticate],
+      schema: {
+        tags: ["Messages"],
+        description: `Real-Time Game Generation Stream
+
+Connect to this endpoint using EventSource to receive live updates during game generation.
+
+**Connection Example:**
+\`\`\`javascript
+const eventSource = new EventSource('/api/conversations/{conversationId}/messages/{messageId}/stream');
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Event:', data.type, data);
+};
+\`\`\`
+
+**Stream Events (in order):**
+
+1. **thinking** - AI is analyzing your request
+2. **thinking_detail** - Detailed analysis phase  
+3. **text_start** - Documentation generation begins
+4. **text_chunk** - Streaming documentation content
+5. **code_start** - Code generation begins
+6. **file_start** - New file generation starts
+7. **file_chunk** - Streaming file content
+8. **file_complete** - File generation finished
+9. **verification** - Code quality verification
+10. **preview_start** - Live preview build starting
+11. **preview_ready** - Live preview available
+12. **download_ready** - ZIP download available
+13. **generation_complete** - All generation finished
+14. **complete** - Final response with all data
+15. **end** - Stream closing
+
+**Error Events:**
+- **error** - Something went wrong
+- **preview_error** - Preview build failed
+
+**Keep-Alive:**
+- **ping** - Connection keep-alive (ignore)`,
+        security: [{ bearerAuth: [] }],
+        produces: ["text/event-stream"],
+        params: {
+          type: "object",
+          properties: {
+            conversationId: { type: "string", description: "The conversation ID" },
+            messageId: { type: "string", description: "The message ID from the POST response" },
+          },
+        },
+        responses: {
+          200: {
+            description: "Server-Sent Events stream established",
+            headers: {
+              "Content-Type": { schema: { type: "string" } },
+              "Cache-Control": { schema: { type: "string" } },
+              Connection: { schema: { type: "string" } },
+            },
+          },
+          404: {
+            description: "Conversation or message not found",
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              error: { type: "string" },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { conversationId, messageId } = request.params
+      const { userId } = request.user as AuthPayload
+
+      console.log(`🔌 STREAM: Client connecting to stream ${conversationId}:${messageId}`)
+
+      const conversation = await conversationModel.findById(conversationId)
+      if (!conversation || conversation.userId.toString() !== userId) {
+        console.log(`❌ STREAM: Access denied for ${conversationId}:${messageId}`)
+        return reply.code(404).send({ error: "Not Found" })
+      }
+
+      // Set SSE headers
+      reply.raw.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Cache-Control",
+      })
+
+      const streamKey = `${conversationId}:${messageId}`
+      global.activeStreams.set(streamKey, reply.raw)
+
+      console.log(`✅ STREAM: Stream registered ${streamKey}`)
+
+      // Send initial connection confirmation
+      reply.raw.write(`data: ${JSON.stringify({ type: "connected", timestamp: new Date().toISOString() })}\n\n`)
+
+      // Clean up on client disconnect
+      request.raw.on("close", () => {
+        console.log(`🔌 STREAM: Client disconnected ${streamKey}`)
+        global.activeStreams.delete(streamKey)
+      })
+
+      // Keep-alive ping every 30 seconds
+      const pingInterval = setInterval(() => {
+        if (reply.raw && !reply.raw.destroyed) {
+          reply.raw.write(`data: ${JSON.stringify({ type: "ping", timestamp: new Date().toISOString() })}\n\n`)
+        } else {
+          clearInterval(pingInterval)
+        }
+      }, 30000)
+
+      request.raw.on("close", () => {
+        clearInterval(pingInterval)
       })
     },
   )
@@ -400,7 +621,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       onRequest: [fastify.authenticate],
       schema: {
         tags: ["Messages"],
-        description: "Edit a message (creates a new version)",
+        description: "Edit a user message (creates a new version, preserving history)",
         security: [{ bearerAuth: [] }],
         params: {
           type: "object",
@@ -423,6 +644,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         },
         response: {
           200: {
+            description: "Message updated successfully",
             type: "object",
             properties: {
               success: { type: "boolean" },
@@ -430,13 +652,24 @@ export async function conversationRoutes(fastify: FastifyInstance) {
                 type: "object",
                 properties: {
                   _id: { type: "string" },
-                  content: { type: "array", items: {} },
+                  content: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        version: { type: "integer" },
+                        text: { type: "string" },
+                        editedAt: { type: "string", format: "date-time" },
+                      },
+                    },
+                  },
                   updatedAt: { type: "string", format: "date-time" },
                 },
               },
             },
           },
           404: {
+            description: "Conversation or message not found",
             type: "object",
             properties: {
               success: { type: "boolean" },
@@ -457,7 +690,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({
           success: false,
           error: "Not Found",
-          message: "Conversation not found",
+          message: "Conversation not found or access denied",
         })
       }
 
@@ -466,13 +699,20 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({
           success: false,
           error: "Not Found",
-          message: "Message not found",
+          message: "Message not found or access denied",
         })
       }
 
+      // Find the updated message
+      const updatedMessage = updatedConversation.messages.find((m) => m._id.toString() === messageId)
+
       reply.send({
         success: true,
-        data: updatedConversation,
+        data: {
+          _id: updatedMessage?._id,
+          content: updatedMessage?.content,
+          updatedAt: updatedMessage?.updatedAt,
+        },
       })
     },
   )
@@ -484,10 +724,18 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       onRequest: [fastify.authenticate],
       schema: {
         tags: ["Messages"],
-        description: "Get all attachments for a message",
+        description: "Get all attachments for a specific message",
         security: [{ bearerAuth: [] }],
+        params: {
+          type: "object",
+          properties: {
+            conversationId: { type: "string" },
+            messageId: { type: "string" },
+          },
+        },
         response: {
           200: {
+            description: "List of message attachments",
             type: "object",
             properties: {
               success: { type: "boolean" },
@@ -521,14 +769,21 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({
           success: false,
           error: "Not Found",
-          message: "Conversation not found",
+          message: "Conversation not found or access denied",
         })
       }
 
       const attachments = await attachmentModel.findByMessageId(messageId)
+
+      // Add download URLs
+      const attachmentsWithUrls = attachments.map((att) => ({
+        ...att,
+        downloadUrl: `/api/conversations/${conversationId}/messages/${messageId}/attachments/${att._id}`,
+      }))
+
       reply.send({
         success: true,
-        data: attachments,
+        data: attachmentsWithUrls,
       })
     },
   )
@@ -540,9 +795,33 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       onRequest: [fastify.authenticate],
       schema: {
         tags: ["Messages"],
-        description: "Download a message attachment",
+        description: "Download a specific message attachment",
         security: [{ bearerAuth: [] }],
         produces: ["application/octet-stream"],
+        params: {
+          type: "object",
+          properties: {
+            conversationId: { type: "string" },
+            messageId: { type: "string" },
+            attachmentId: { type: "string" },
+          },
+        },
+        response: {
+          200: {
+            description: "File download",
+            type: "string",
+            format: "binary",
+          },
+          404: {
+            description: "Attachment not found",
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              error: { type: "string" },
+              message: { type: "string" },
+            },
+          },
+        },
       },
     },
     async (request, reply) => {
@@ -554,7 +833,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({
           success: false,
           error: "Not Found",
-          message: "Conversation not found",
+          message: "Conversation not found or access denied",
         })
       }
 
@@ -574,4 +853,257 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       reply.send(downloadStream)
     },
   )
+
+  // --- DELETE OPERATIONS ---
+
+  // Delete a message
+  fastify.delete<{ Params: { conversationId: string; messageId: string } }>(
+    "/:conversationId/messages/:messageId",
+    {
+      onRequest: [fastify.authenticate],
+      schema: {
+        tags: ["Messages"],
+        description: "Delete a specific message from a conversation. This action is irreversible.",
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: "object",
+          properties: {
+            conversationId: { type: "string" },
+            messageId: { type: "string" },
+          },
+        },
+        response: {
+          200: {
+            description: "Message deleted successfully",
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              message: { type: "string" },
+            },
+          },
+          404: {
+            description: "Conversation or message not found",
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              error: { type: "string" },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { conversationId, messageId } = request.params
+      const { userId } = request.user as AuthPayload
+
+      const conversation = await conversationModel.findById(conversationId)
+      if (!conversation || conversation.userId.toString() !== userId) {
+        return reply.code(404).send({ success: false, error: "Not Found" })
+      }
+
+      const success = await conversationModel.deleteMessage(conversationId, messageId)
+      if (success) {
+        reply.send({ success: true, message: "Message deleted successfully" })
+      } else {
+        reply.code(404).send({ success: false, error: "Not Found", message: "Message not found" })
+      }
+    },
+  )
+
+  // Delete a conversation
+  fastify.delete<{ Params: { conversationId: string } }>(
+    "/:conversationId",
+    {
+      onRequest: [fastify.authenticate],
+      schema: {
+        tags: ["Conversations"],
+        description: "Delete an entire conversation and all its messages. This action is irreversible.",
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: "object",
+          properties: {
+            conversationId: { type: "string" },
+          },
+        },
+        response: {
+          200: {
+            description: "Conversation deleted successfully",
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              message: { type: "string" },
+            },
+          },
+          404: {
+            description: "Conversation not found",
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              error: { type: "string" },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { conversationId } = request.params
+      const { userId } = request.user as AuthPayload
+
+      const conversation = await conversationModel.findById(conversationId)
+      if (!conversation || conversation.userId.toString() !== userId) {
+        return reply.code(404).send({ success: false, error: "Not Found" })
+      }
+
+      const success = await conversationModel.deleteById(conversationId)
+      if (success) {
+        reply.send({ success: true, message: "Conversation deleted successfully" })
+      } else {
+        reply.code(500).send({ success: false, error: "Internal Server Error" })
+      }
+    },
+  )
+
+  // --- STREAMING GENERATION FUNCTION ---
+
+  async function startStreamingGeneration(
+    conversationId: string,
+    messageId: string,
+    prompt: string,
+    framework: string,
+    attachments: any[],
+  ) {
+    const streamKey = `${conversationId}:${messageId}`
+    console.log(`🚀 STREAM: Starting generation for ${streamKey}`)
+
+    const stream = global.activeStreams.get(streamKey)
+
+    if (!stream || stream.destroyed) {
+      console.log(`❌ STREAM: No active stream for ${streamKey}`)
+      return
+    }
+
+    const sendUpdate = (data: any) => {
+      if (stream && !stream.destroyed) {
+        try {
+          const message = `data: ${JSON.stringify(data)}\n\n`
+          stream.write(message)
+          console.log(`📤 STREAM: Sent ${data.type} to ${streamKey}`)
+        } catch (error) {
+          console.error(`❌ STREAM: Failed to send update to ${streamKey}:`, error)
+        }
+      } else {
+        console.log(`⚠️ STREAM: Stream ${streamKey} is no longer active`)
+      }
+    }
+
+    try {
+      console.log(`🤖 STREAM: Preparing LLM generation for ${streamKey}`)
+
+      // Prepare attachment context
+      const attachmentContext = await Promise.all(
+        attachments.map(async (att) => ({
+          filename: att.filename,
+          mimetype: att.mimetype,
+          content: "File content would be extracted here", // In real implementation, extract actual content
+        })),
+      )
+
+      console.log(`📝 STREAM: Calling LLM service for ${streamKey}`)
+
+      // Generate code with streaming updates
+      const llmResponseText = await llmService.generateCodeWithStreaming(
+        prompt,
+        { framework, attachments: attachmentContext },
+        sendUpdate,
+      )
+
+      console.log(`✅ STREAM: LLM generation completed for ${streamKey}`)
+
+      const parsedResponse = JSON.parse(llmResponseText)
+
+      // Create live preview
+      sendUpdate({ type: "preview_start", content: "🚀 Launching live preview environment..." })
+
+      try {
+        const previewEnv = await codeCompiler.compileAndPreview(parsedResponse.codeResponse)
+        if (previewEnv.status === "ready") {
+          parsedResponse.codeResponse.previewUrl = previewEnv.url
+          sendUpdate({
+            type: "preview_ready",
+            url: previewEnv.url,
+            buildLogs: previewEnv.buildLogs,
+          })
+        } else {
+          sendUpdate({
+            type: "preview_error",
+            error: "Preview build failed",
+            buildLogs: previewEnv.buildLogs,
+          })
+        }
+      } catch (previewError) {
+        console.error(`⚠️ STREAM: Preview failed for ${streamKey}:`, previewError)
+        sendUpdate({
+          type: "preview_error",
+          error: previewError instanceof Error ? previewError.message : "Preview failed",
+        })
+      }
+
+      // Generate download link
+      try {
+        const downloadUrl = await codeCompiler.generateDownloadLink(parsedResponse.codeResponse)
+        parsedResponse.codeResponse.downloadUrl = downloadUrl
+        sendUpdate({ type: "download_ready", url: downloadUrl })
+      } catch (downloadError) {
+        console.error(`⚠️ STREAM: Download generation failed for ${streamKey}:`, downloadError)
+        // Continue without download link
+      }
+
+      // Send final completion
+      sendUpdate({ type: "generation_complete", progress: 100 })
+      sendUpdate({ type: "complete", response: parsedResponse })
+
+      // Save to database
+      const llmResponse: Omit<LLMResponse, "version" | "createdAt"> = {
+        provider: "groq",
+        textResponse: parsedResponse.textResponse,
+        codeResponse: parsedResponse.codeResponse,
+        thinking: parsedResponse.thinking,
+        status: parsedResponse.status || "completed",
+        error: parsedResponse.error,
+      }
+      await conversationModel.addLLMResponse(conversationId, messageId, llmResponse)
+
+      console.log(`✅ STREAM: Generation completed and saved for ${streamKey}`)
+    } catch (error) {
+      console.error(`❌ STREAM: Generation failed for ${streamKey}:`, error)
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+
+      sendUpdate({
+        type: "error",
+        error: errorMessage,
+        details: "The AI generation process encountered an error. Please try again.",
+      })
+
+      // Save error response to database
+      const errorResponse: Omit<LLMResponse, "version" | "createdAt"> = {
+        provider: "groq",
+        textResponse: "I apologize, but I encountered an error while generating your game.",
+        status: "error",
+        error: errorMessage,
+      }
+      await conversationModel.addLLMResponse(conversationId, messageId, errorResponse)
+    } finally {
+      // Always close the stream
+      if (stream && !stream.destroyed) {
+        try {
+          stream.write(`data: ${JSON.stringify({ type: "end" })}\n\n`)
+          stream.end()
+          console.log(`🔚 STREAM: Stream closed for ${streamKey}`)
+        } catch (error) {
+          console.error(`❌ STREAM: Failed to close stream ${streamKey}:`, error)
+        }
+      }
+      global.activeStreams.delete(streamKey)
+    }
+  }
 }

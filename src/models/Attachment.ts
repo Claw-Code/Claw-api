@@ -51,4 +51,32 @@ export class AttachmentModel {
   getUploadStream(filename: string) {
     return this.bucket.openUploadStream(filename)
   }
+
+  async deleteById(id: string): Promise<boolean> {
+    if (!ObjectId.isValid(id)) return false
+    const attachment = await this.findById(id)
+    if (!attachment) return false
+
+    // Delete from GridFS
+    await this.bucket.delete(attachment.gridfsId)
+
+    // Delete from attachments collection
+    const result = await this.collection.deleteOne({ _id: new ObjectId(id) })
+    return result.deletedCount === 1
+  }
+
+  async deleteByMessageId(messageId: string): Promise<number> {
+    if (!ObjectId.isValid(messageId)) return 0
+    const attachments = await this.findByMessageId(messageId)
+    if (attachments.length === 0) return 0
+
+    // Delete all files from GridFS
+    for (const attachment of attachments) {
+      await this.bucket.delete(attachment.gridfsId)
+    }
+
+    // Delete all documents from attachments collection
+    const result = await this.collection.deleteMany({ messageId: new ObjectId(messageId) })
+    return result.deletedCount
+  }
 }

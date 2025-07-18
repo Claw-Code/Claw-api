@@ -4,56 +4,104 @@ export class GroqProvider implements LLMProvider {
   name = "Groq"
   private apiKey: string
   private baseUrl = "https://api.groq.com/openai/v1"
+  private logs: string[] = []
 
   constructor() {
     this.apiKey = process.env.GROQ_API_KEY || ""
   }
 
+  private log(message: string) {
+    const timestamp = new Date().toISOString()
+    const logMessage = `[${timestamp}] GROQ: ${message}`
+    this.logs.push(logMessage)
+    console.log(logMessage)
+
+    // Keep only last 20 logs
+    if (this.logs.length > 20) {
+      this.logs = this.logs.slice(-20)
+    }
+  }
+
+  getLogs(): string[] {
+    return [...this.logs]
+  }
+
   async generate(prompt: string, context?: any): Promise<string> {
+    this.log("🚀 Starting generation...")
+    this.log(`📝 Prompt length: ${prompt.length}`)
+    this.log(`🔑 API Key configured: ${this.apiKey ? "Yes" : "No"}`)
+
     if (!this.apiKey) {
-      throw new Error("GROQ_API_KEY is not configured")
+      const error = "GROQ_API_KEY is not configured"
+      this.log(`❌ ${error}`)
+      throw new Error(error)
     }
 
     // Use Llama model for free tier
     const model = context?.model || "llama3-8b-8192"
+    this.log(`🤖 Using model: ${model}`)
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: this.getPhaserSystemPrompt(),
-          },
-          {
-            role: "user",
-            content: this.formatPromptForPhaser(prompt, context),
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 4000,
-        stream: false,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Groq API error (${response.status}): ${errorText}`)
+    const requestBody = {
+      model,
+      messages: [
+        {
+          role: "system",
+          content: this.getPhaserSystemPrompt(),
+        },
+        {
+          role: "user",
+          content: this.formatPromptForPhaser(prompt, context),
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 4000,
+      stream: false,
     }
 
-    const result = await response.json()
-    const content = result.choices[0]?.message?.content || ""
+    this.log("📤 Sending request to Groq API...")
 
-    return this.parseStructuredResponse(content)
+    try {
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      this.log(`📥 Groq API response status: ${response.status} ${response.statusText}`)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        this.log(`❌ Groq API error: ${errorText}`)
+        throw new Error(`Groq API error (${response.status}): ${errorText}`)
+      }
+
+      const result = await response.json()
+      this.log("✅ Groq API response received")
+
+      const content = result.choices[0]?.message?.content || ""
+      this.log(`📄 Response content length: ${content.length}`)
+      this.log(`🔍 First 200 chars: ${content.substring(0, 200)}`)
+
+      const parsedResponse = this.parseStructuredResponse(content)
+      this.log("✅ Response parsed and structured")
+
+      return parsedResponse
+    } catch (error) {
+      this.log(`❌ Request failed: ${error}`)
+      throw error
+    }
   }
 
   async isAvailable(): Promise<boolean> {
-    if (!this.apiKey) return false
+    this.log("🔍 Checking availability...")
+
+    if (!this.apiKey) {
+      this.log("❌ No API key configured")
+      return false
+    }
 
     try {
       const response = await fetch(`${this.baseUrl}/models`, {
@@ -61,8 +109,11 @@ export class GroqProvider implements LLMProvider {
           Authorization: `Bearer ${this.apiKey}`,
         },
       })
-      return response.ok
-    } catch {
+      const available = response.ok
+      this.log(`✅ Availability check: ${available ? "available" : "unavailable"}`)
+      return available
+    } catch (error) {
+      this.log(`❌ Availability check failed: ${error}`)
       return false
     }
   }
@@ -89,105 +140,6 @@ Your expertise includes:
 - You create engaging games with proper game mechanics and cool assets
 - You include comprehensive error handling and performance optimizations
 
-## Phaser.js Best Practices:
-
-**1. Game Configuration:**
-\`\`\`javascript
-const config = {
-    type: Phaser.AUTO,
-    width: 800,
-    height: 600,
-    backgroundColor: '#2c3e50',
-    physics: {
-        default: 'arcade',
-        arcade: {
-            gravity: { y: 300 },
-            debug: false
-        }
-    },
-    scene: [PreloadScene, GameScene]
-};
-\`\`\`
-
-**2. Scene Structure:**
-\`\`\`javascript
-class GameScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'GameScene' });
-    }
-    
-    preload() {
-        // Load assets
-    }
-    
-    create() {
-        // Initialize game objects
-    }
-    
-    update() {
-        // Game loop logic
-    }
-}
-\`\`\`
-
-**3. Asset Loading:**
-\`\`\`javascript
-preload() {
-    this.load.image('player', 'assets/player.png');
-    this.load.spritesheet('explosion', 'assets/explosion.png', {
-        frameWidth: 64,
-        frameHeight: 64
-    });
-    this.load.audio('jump', 'assets/jump.wav');
-}
-\`\`\`
-
-**4. Sprite Creation with Physics:**
-\`\`\`javascript
-this.player = this.physics.add.sprite(100, 450, 'player');
-this.player.setBounce(0.2);
-this.player.setCollideWorldBounds(true);
-\`\`\`
-
-**5. Animation System:**
-\`\`\`javascript
-this.anims.create({
-    key: 'run',
-    frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
-    frameRate: 10,
-    repeat: -1
-});
-\`\`\`
-
-**6. Input Handling:**
-\`\`\`javascript
-this.cursors = this.input.keyboard.createCursorKeys();
-this.wasd = this.input.keyboard.addKeys('W,S,A,D');
-\`\`\`
-
-**7. Collision Detection:**
-\`\`\`javascript
-this.physics.add.collider(player, platforms);
-this.physics.add.overlap(player, stars, collectStar, null, this);
-\`\`\`
-
-**8. Particle Effects:**
-\`\`\`javascript
-const particles = this.add.particles(x, y, 'spark', {
-    speed: { min: 100, max: 200 },
-    scale: { start: 0.5, end: 0 },
-    blendMode: 'ADD'
-});
-\`\`\`
-
-## Asset Generation Guidelines:
-- Create placeholder assets using colored rectangles and basic shapes
-- Use Phaser's built-in graphics API for procedural generation
-- Include particle effects for visual appeal
-- Add sound effect placeholders with proper audio management
-- Use tweens for smooth animations and transitions
-- Implement proper sprite atlases for performance
-
 IMPORTANT: Always respond in this exact JSON format:
 {
   "thinking": "Your detailed thought process for the Phaser.js game design, architecture, and implementation strategy.",
@@ -203,12 +155,6 @@ IMPORTANT: Always respond in this exact JSON format:
       {
         "path": "game.js",
         "content": "// Complete Phaser.js game code",
-        "type": "js",
-        "language": "javascript"
-      },
-      {
-        "path": "assets.js",
-        "content": "// Asset generation and management code",
         "type": "js",
         "language": "javascript"
       }
@@ -236,17 +182,6 @@ IMPORTANT: Always respond in this exact JSON format:
 - Add sound effects and background music placeholders
 - Optimize for performance and mobile devices
 
-## Game Elements to Include:
-- **Player Character**: Animated sprite with smooth movement
-- **Enemies/Obstacles**: AI-driven or physics-based challenges
-- **Collectibles**: Power-ups, coins, or score items
-- **Visual Effects**: Particles, explosions, screen shake
-- **Audio System**: Sound effects and background music
-- **UI Elements**: Score display, health bars, menus
-- **Level Design**: Multiple levels or procedural generation
-- **Game States**: Menu, gameplay, game over, pause
-- **Mobile Support**: Touch controls and responsive design
-
 ## Technical Requirements:
 - Proper scene management and transitions
 - Object pooling for performance optimization
@@ -255,7 +190,15 @@ IMPORTANT: Always respond in this exact JSON format:
 - Memory management and cleanup
 - Scalable architecture for easy expansion
 - Cross-browser compatibility
-- Mobile-first responsive design`
+- Mobile-first responsive design
+
+## Deliverables:
+Please provide:
+1. **Complete HTML file** with Phaser.js CDN and proper structure
+2. **Main game JavaScript file** with all game logic and scenes
+3. **Comprehensive documentation** explaining the game mechanics and code structure
+
+The game should be immediately playable in a browser and demonstrate professional game development practices.`
 
     const attachments = context?.attachments || []
 
@@ -265,15 +208,6 @@ IMPORTANT: Always respond in this exact JSON format:
         formattedPrompt += `\n**File ${index + 1} (${attachment.filename}):**\n${attachment.content}\n`
       })
     }
-
-    formattedPrompt += `\n\n## Deliverables:
-Please provide:
-1. **Complete HTML file** with Phaser.js CDN and proper structure
-2. **Main game JavaScript file** with all game logic and scenes
-3. **Asset generation file** with procedural asset creation
-4. **Comprehensive documentation** explaining the game mechanics and code structure
-
-The game should be immediately playable in a browser and demonstrate professional game development practices.`
 
     return formattedPrompt
   }

@@ -8,6 +8,7 @@ import { authRoutes } from "./routes/auth"
 import { conversationRoutes } from "./routes/conversations"
 import { downloadRoutes } from "./routes/download"
 import { previewRoutes } from "./routes/preview"
+import { LLMService } from "./services/llm/LLMService"
 
 const fastify = Fastify({
   logger: {
@@ -18,111 +19,59 @@ const fastify = Fastify({
   },
 })
 
+// Global LLM service instance for debugging
+let globalLLMService: LLMService
+
 async function main() {
   // Connect to database
   await database.connect()
 
+  // Initialize global LLM service
+  globalLLMService = new LLMService()
+
   // Register plugins
   await fastify.register(cors, {
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl)
-      if (!origin) return callback(null, true)
-
-      // Allow localhost in development
-      if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
+      if (!origin || origin.includes("localhost") || origin.includes("127.0.0.1")) {
         return callback(null, true)
       }
-
-      // Allow your production domains
-      const allowedOrigins = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:8000",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8000",
-        "https://your-frontend-domain.com",
-      ]
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true)
-      }
-
-      // In development, allow all origins
+      // In a real production environment, you would list your allowed domains here.
+      // For now, we allow any origin in development.
       if (process.env.NODE_ENV === "development") {
         return callback(null, true)
       }
-
       return callback(new Error("Not allowed by CORS"), false)
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allowedHeaders: [
-      "Origin",
-      "X-Requested-With",
-      "Content-Type",
-      "Accept",
-      "Authorization",
-      "Cache-Control",
-      "X-HTTP-Method-Override",
-    ],
-    exposedHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "Content-Disposition"],
-    optionsSuccessStatus: 200,
-    preflightContinue: false,
   })
 
-  // Add a preflight OPTIONS handler for all routes:
-  fastify.addHook("preHandler", async (request, reply) => {
-    // Handle preflight requests
-    if (request.method === "OPTIONS") {
-      reply
-        .code(200)
-        .header("Access-Control-Allow-Origin", request.headers.origin || "*")
-        .header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-        .header(
-          "Access-Control-Allow-Headers",
-          "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control",
-        )
-        .header("Access-Control-Allow-Credentials", "true")
-        .send()
-      return
-    }
-  })
   await setupAuth(fastify)
 
-  // Enhanced Swagger documentation with complete schemas
+  // Enhanced Swagger documentation with streaming info
   await fastify.register(swagger, {
     swagger: {
       info: {
-        title: "🦅 Claw API v2 - Complete Documentation",
+        title: "🦅 Claw API v2 - Streaming & Live Previews",
         description: `
 # 🦅 Claw API - AI-Powered Phaser.js Game Development
 
-**The most advanced AI-powered game development API specializing in Phaser.js 2D games.**
+**The most advanced AI-powered game development API specializing in Phaser.js 2D games, now with real-time streaming and live previews.**
 
-## 🎮 What is Claw API?
+## ⚡ Real-Time Streaming Architecture
 
-Claw API is a comprehensive backend service that generates professional-quality Phaser.js games using advanced AI models.
+Claw API uses **Server-Sent Events (SSE)** to provide a v0-like, real-time generation experience.
+
+### Workflow:
+1.  **Initiate**: Send a \`POST\` request to \`/api/conversations/{id}/messages\`.
+2.  **Connect**: The API immediately responds with a \`streamUrl\`. Your client connects to this URL using an \`EventSource\`.
+3.  **Stream**: The API pushes real-time updates as the AI thinks, writes documentation, generates code files, and creates a live preview.
 
 ## 🔐 Authentication
 
-**All endpoints except \`/health\` and \`/docs\` require JWT authentication.**
-
-Include your token in the Authorization header:
-\`\`\`
-Authorization: Bearer <your_jwt_token>
-\`\`\`
-
-## 🚀 Quick Start Workflow
-
-1. **Register/Login** → Get JWT token
-2. **Create Conversation** → Start a new project
-3. **Send Message** → Request game generation with optional files
-4. **Get Response** → Receive structured text + code response
-5. **Edit/Refine** → Modify messages to improve results
-6. **Download** → Get ZIP file for deployment
+**All endpoints except \`/health\` and \`/docs\` require JWT authentication.** Include your token in the Authorization header: \`Authorization: Bearer <your_jwt_token>\`
 
 ---
-
 *Built with ❤️ for game developers worldwide*
         `,
         version: "2.0.0",
@@ -131,48 +80,22 @@ Authorization: Bearer <your_jwt_token>
           url: "https://github.com/your-repo/claw-api",
           email: "support@clawapi.com",
         },
-        license: {
-          name: "MIT",
-          url: "https://opensource.org/licenses/MIT",
-        },
       },
       host: "localhost:8000",
-      schemes: ["http", "https"],
+      schemes: ["http"],
       consumes: ["application/json", "multipart/form-data"],
-      produces: ["application/json", "application/zip", "text/html"],
+      produces: ["application/json", "application/zip", "text/event-stream"],
       tags: [
-        {
-          name: "Authentication",
-          description: "🔐 User registration, login, and profile management",
-        },
-        {
-          name: "Conversations",
-          description: "💬 Create and manage conversation threads for game projects",
-        },
-        {
-          name: "Messages",
-          description: "📝 Send messages, upload files, and receive AI-generated games",
-        },
-        {
-          name: "Download",
-          description: "📦 Download generated games as ZIP files",
-        },
-        {
-          name: "Preview",
-          description: "👀 Live preview of generated games",
-        },
-        {
-          name: "System",
-          description: "🔧 Health checks and system status",
-        },
+        { name: "Authentication", description: "🔐 User registration, login, and profile management" },
+        { name: "Conversations", description: "💬 Create and manage game project conversations" },
+        { name: "Messages", description: "📝 Send prompts and stream AI-generated game responses" },
+        { name: "Download", description: "📦 Download generated games as ZIP files" },
+        { name: "Preview", description: "👀 Live preview of generated games" },
+        { name: "System", description: "🔧 Health checks and system status" },
+        { name: "Debug", description: "🐛 Debug and testing endpoints" },
       ],
       securityDefinitions: {
-        bearerAuth: {
-          type: "apiKey",
-          name: "Authorization",
-          in: "header",
-          description: "JWT token in format: Bearer <token>",
-        },
+        bearerAuth: { type: "apiKey", name: "Authorization", in: "header", description: "JWT: Bearer <token>" },
       },
     },
   })
@@ -182,338 +105,163 @@ Authorization: Bearer <your_jwt_token>
     uiConfig: {
       docExpansion: "list",
       deepLinking: true,
-      displayRequestDuration: true,
-      showExtensions: true,
-      showCommonExtensions: true,
       tryItOutEnabled: true,
     },
     staticCSP: true,
-    transformStaticCSP: (header) => header,
   })
 
-  // Register routes with enhanced documentation
+  // Register routes
   await fastify.register(authRoutes, { prefix: "/api/auth" })
   await fastify.register(conversationRoutes, { prefix: "/api/conversations" })
   await fastify.register(downloadRoutes, { prefix: "/api/download" })
   await fastify.register(previewRoutes, { prefix: "/api/preview" })
 
-  // Enhanced health check with detailed system status
+  // Debug endpoint for testing LLM service
+  fastify.get(
+    "/debug/llm",
+    {
+      schema: {
+        tags: ["Debug"],
+        description: "🔧 Debug LLM service directly with detailed logs",
+        querystring: {
+          type: "object",
+          properties: {
+            prompt: { type: "string", default: "Create a simple Phaser.js game" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const prompt = (request.query as any)?.prompt || "Create a simple Phaser.js game with a player that can move"
+
+        console.log("🧪 DEBUG: Starting LLM test")
+        console.log(`🧪 DEBUG: Prompt: ${prompt}`)
+
+        // Clear previous logs
+        globalLLMService.clearLogs()
+
+        const response = await globalLLMService.generateCode(prompt, { framework: "phaser.js" })
+
+        const logs = globalLLMService.getLogs()
+
+        console.log("🧪 DEBUG: LLM test completed")
+        console.log(`🧪 DEBUG: Response length: ${response.length}`)
+
+        reply.send({
+          success: true,
+          prompt: prompt,
+          responseLength: response.length,
+          logs: logs,
+          responsePreview: response.substring(0, 1000) + "...", // First 1000 chars
+          fullResponse: response, // Full response for debugging
+          timestamp: new Date().toISOString(),
+        })
+      } catch (error) {
+        console.error("🚨 DEBUG: LLM test failed:", error)
+
+        const logs = globalLLMService.getLogs()
+
+        reply.code(500).send({
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+          details: "LLM service test failed",
+          logs: logs,
+          timestamp: new Date().toISOString(),
+        })
+      }
+    },
+  )
+
+  // Debug endpoint to get current logs
+  fastify.get(
+    "/debug/logs",
+    {
+      schema: {
+        tags: ["Debug"],
+        description: "🔧 Get current LLM service logs",
+      },
+    },
+    async (request, reply) => {
+      const logs = globalLLMService.getLogs()
+      reply.send({
+        success: true,
+        logs: logs,
+        timestamp: new Date().toISOString(),
+      })
+    },
+  )
+
+  // Debug endpoint to clear logs
+  fastify.post(
+    "/debug/logs/clear",
+    {
+      schema: {
+        tags: ["Debug"],
+        description: "🔧 Clear LLM service logs",
+      },
+    },
+    async (request, reply) => {
+      globalLLMService.clearLogs()
+      reply.send({
+        success: true,
+        message: "Logs cleared",
+        timestamp: new Date().toISOString(),
+      })
+    },
+  )
+
+  // Enhanced health check
   fastify.get(
     "/health",
     {
       schema: {
         tags: ["System"],
-        description: "🏥 Comprehensive system health check with service status",
+        description: "🏥 Comprehensive system health check",
         response: {
           200: {
+            description: "Successful health check",
             type: "object",
             properties: {
-              status: {
-                type: "string",
-                enum: ["ok", "degraded", "down"],
-                description: "Overall system health",
-                example: "ok",
-              },
-              timestamp: {
-                type: "string",
-                format: "date-time",
-                description: "Health check timestamp",
-                example: "2024-01-15T14:30:00.000Z",
-              },
-              uptime: {
-                type: "number",
-                description: "Server uptime in seconds",
-                example: 86400.5,
-              },
-              version: {
-                type: "string",
-                description: "API version",
-                example: "2.0.0",
-              },
-              responseTime: {
-                type: "number",
-                description: "Response time in milliseconds",
-                example: 15,
-              },
+              status: { type: "string", example: "ok" },
+              timestamp: { type: "string", format: "date-time" },
               services: {
                 type: "object",
                 properties: {
-                  database: {
-                    type: "string",
-                    enum: ["connected", "disconnected", "error"],
-                    example: "connected",
-                  },
+                  database: { type: "string", enum: ["connected", "disconnected"] },
                   llmProviders: {
                     type: "array",
                     items: {
                       type: "object",
                       properties: {
-                        name: { type: "string", example: "groq" },
-                        status: { type: "string", enum: ["available", "unavailable"], example: "available" },
-                        responseTime: { type: "number", example: 1.2 },
+                        name: { type: "string" },
+                        available: { type: "boolean" },
                       },
                     },
                   },
                 },
               },
-              environment: {
-                type: "string",
-                description: "Current environment",
-                example: "development",
-              },
-              features: {
-                type: "object",
-                properties: {
-                  phaserGeneration: { type: "boolean", example: true },
-                  fileUploads: { type: "boolean", example: true },
-                  messageVersioning: { type: "boolean", example: true },
-                  selfCorrection: { type: "boolean", example: true },
-                  mobileOptimization: { type: "boolean", example: true },
-                },
-              },
-            },
-          },
-          503: {
-            type: "object",
-            properties: {
-              success: { type: "boolean", example: false },
-              error: { type: "string", example: "ServiceUnavailable" },
-              message: { type: "string", example: "Service is temporarily unavailable" },
-              timestamp: { type: "string", format: "date-time" },
             },
           },
         },
       },
     },
-    async () => {
-      const startTime = Date.now()
+    async (request, reply) => {
+      const llmService = new LLMService()
+      const dbOk = await database.healthCheck()
+      const llmStatus = await llmService.getProvidersStatus()
+      const isHealthy = dbOk && llmStatus.some((p) => p.available)
 
-      // Check database connection
-      let dbStatus = "connected"
-      try {
-        await database.getDb().admin().ping()
-      } catch {
-        dbStatus = "disconnected"
-      }
-
-      // Check LLM providers (simplified for health check)
-      const llmProviders = [
-        { name: "groq", status: "available", responseTime: 1.2 },
-        { name: "huggingface", status: "available", responseTime: 2.1 },
-        { name: "ollama", status: "unavailable", responseTime: 0 },
-      ]
-
-      const responseTime = Date.now() - startTime
-
-      return {
-        status: dbStatus === "connected" ? "ok" : "degraded",
+      reply.code(isHealthy ? 200 : 503).send({
+        status: isHealthy ? "ok" : "degraded",
         timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        version: "2.0.0",
-        responseTime: responseTime,
         services: {
-          database: dbStatus,
-          llmProviders,
+          database: dbOk ? "connected" : "disconnected",
+          llmProviders: llmStatus,
         },
-        environment: process.env.NODE_ENV || "development",
-        features: {
-          phaserGeneration: true,
-          fileUploads: true,
-          messageVersioning: true,
-          selfCorrection: true,
-          mobileOptimization: true,
-        },
-      }
+      })
     },
   )
-
-  // API status endpoint
-  fastify.get(
-    "/api/status",
-    {
-      schema: {
-        tags: ["System"],
-        description: "📊 Detailed API status and capabilities",
-        response: {
-          200: {
-            type: "object",
-            properties: {
-              api: {
-                type: "object",
-                properties: {
-                  name: { type: "string", example: "Claw API" },
-                  version: { type: "string", example: "2.0.0" },
-                  description: { type: "string", example: "AI-Powered Phaser.js Game Development API" },
-                  documentation: { type: "string", example: "/docs" },
-                  repository: { type: "string", example: "https://github.com/your-repo/claw-api" },
-                },
-              },
-              capabilities: {
-                type: "object",
-                properties: {
-                  gameFrameworks: {
-                    type: "array",
-                    items: { type: "string" },
-                    example: ["phaser.js"],
-                  },
-                  llmProviders: {
-                    type: "array",
-                    items: { type: "string" },
-                    example: ["groq", "huggingface", "ollama"],
-                  },
-                  features: {
-                    type: "array",
-                    items: { type: "string" },
-                    example: [
-                      "AI Code Generation",
-                      "Self-Correction Loop",
-                      "File Attachments",
-                      "Message Versioning",
-                      "Mobile Optimization",
-                      "Real-time Preview",
-                      "ZIP Downloads",
-                      "Error Recovery",
-                      "Performance Optimization",
-                    ],
-                  },
-                  gameTypes: {
-                    type: "array",
-                    items: { type: "string" },
-                    example: [
-                      "Space Shooters",
-                      "Platformers",
-                      "Puzzle Games",
-                      "Endless Runners",
-                      "Arcade Games",
-                      "Custom Games",
-                    ],
-                  },
-                },
-              },
-              limits: {
-                type: "object",
-                properties: {
-                  maxFileSize: { type: "string", example: "50MB" },
-                  maxFilesPerMessage: { type: "integer", example: 5 },
-                  maxConversationsPerUser: { type: "integer", example: 100 },
-                  maxMessageLength: { type: "integer", example: 5000 },
-                  rateLimitGeneral: { type: "string", example: "10 req/sec" },
-                  rateLimitGeneration: { type: "string", example: "5 req/sec" },
-                  tokenExpiry: { type: "string", example: "7 days" },
-                },
-              },
-              timestamp: { type: "string", format: "date-time" },
-            },
-          },
-        },
-      },
-    },
-    async () => ({
-      api: {
-        name: "Claw API",
-        version: "2.0.0",
-        description: "AI-Powered Phaser.js Game Development API",
-        documentation: "/docs",
-        repository: "https://github.com/your-repo/claw-api",
-      },
-      capabilities: {
-        gameFrameworks: ["phaser.js"],
-        llmProviders: ["groq", "huggingface", "ollama"],
-        features: [
-          "AI Code Generation",
-          "Self-Correction Loop",
-          "File Attachments",
-          "Message Versioning",
-          "Mobile Optimization",
-          "Real-time Preview",
-          "ZIP Downloads",
-          "Error Recovery",
-          "Performance Optimization",
-        ],
-        gameTypes: ["Space Shooters", "Platformers", "Puzzle Games", "Endless Runners", "Arcade Games", "Custom Games"],
-      },
-      limits: {
-        maxFileSize: "50MB",
-        maxFilesPerMessage: 5,
-        maxConversationsPerUser: 100,
-        maxMessageLength: 5000,
-        rateLimitGeneral: "10 req/sec",
-        rateLimitGeneration: "5 req/sec",
-        tokenExpiry: "7 days",
-      },
-      timestamp: new Date().toISOString(),
-    }),
-  )
-
-  // Add this error handler before starting the server
-  fastify.setErrorHandler(async (error, request, reply) => {
-    // CORS errors
-    if (error.message.includes("CORS") || error.message.includes("Not allowed by CORS")) {
-      reply.code(403).send({
-        success: false,
-        error: "CORSError",
-        message: "Cross-Origin Request Blocked",
-        details: {
-          origin: request.headers.origin,
-          method: request.method,
-          suggestion: "Make sure your frontend domain is allowed in CORS configuration",
-        },
-      })
-      return
-    }
-
-    // Authentication errors
-    if (error.message.includes("jwt") || error.message.includes("token")) {
-      reply.code(401).send({
-        success: false,
-        error: "AuthenticationError",
-        message: "Authentication failed",
-        details: {
-          code: "INVALID_TOKEN",
-          suggestion: "Please provide a valid JWT token in Authorization header",
-        },
-      })
-      return
-    }
-
-    // Validation errors
-    if (error.validation) {
-      reply.code(400).send({
-        success: false,
-        error: "ValidationError",
-        message: "Request validation failed",
-        details: {
-          validationErrors: error.validation,
-          suggestion: "Check the API documentation for correct request format",
-        },
-      })
-      return
-    }
-
-    // Database connection errors
-    if (error.message.includes("MongoDB") || error.message.includes("database")) {
-      reply.code(503).send({
-        success: false,
-        error: "DatabaseError",
-        message: "Database connection failed",
-        details: {
-          suggestion: "The service is temporarily unavailable. Please try again later.",
-        },
-      })
-      return
-    }
-
-    // Generic server errors
-    fastify.log.error(error)
-    reply.code(500).send({
-      success: false,
-      error: "InternalServerError",
-      message: "An unexpected error occurred",
-      details: {
-        suggestion: "Please try again or contact support if the problem persists",
-      },
-    })
-  })
 
   // Start server
   try {
@@ -521,9 +269,8 @@ Authorization: Bearer <your_jwt_token>
     const host = process.env.HOST || "0.0.0.0"
     await fastify.listen({ port, host })
     console.log(`🦅 Claw API v2 is running on http://${host}:${port}`)
-    console.log(`📚 Complete API Documentation: http://${host}:${port}/docs`)
-    console.log(`🏥 Health Check: http://${host}:${port}/health`)
-    console.log(`📊 API Status: http://${host}:${port}/api/status`)
+    console.log(`📚 API Docs: http://${host}:${port}/docs`)
+    console.log(`🐛 Debug LLM: http://${host}:${port}/debug/llm`)
   } catch (err) {
     fastify.log.error(err)
     process.exit(1)
