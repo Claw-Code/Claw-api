@@ -370,101 +370,168 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      console.log(`🔍 DEBUG: POST /messages called for conversation ${request.params.conversationId}`)
+
       const { conversationId } = request.params
       const { userId } = request.user as AuthPayload
 
-      const conversation = await conversationModel.findById(conversationId)
-      if (!conversation || conversation.userId.toString() !== userId) {
-        return reply.code(404).send({
-          success: false,
-          error: "Not Found",
-          message: "Conversation not found or access denied",
-        })
-      }
+      console.log(`🔍 DEBUG: User ID: ${userId}, Conversation ID: ${conversationId}`)
 
-      const parts = request.parts()
-      let messageText = ""
-      let framework = "phaser.js"
-      const attachments: any[] = []
+      try {
+        const conversation = await conversationModel.findById(conversationId)
+        console.log(`🔍 DEBUG: Conversation found: ${!!conversation}`)
+        console.log(`🔍 DEBUG: Conversation title: ${conversation?.title}`)
+        console.log(`🔍 DEBUG: Conversation userId: ${conversation?.userId}`)
+        console.log(`🔍 DEBUG: Conversation messages exists: ${!!conversation?.messages}`)
+        console.log(`🔍 DEBUG: Conversation messages is array: ${Array.isArray(conversation?.messages)}`)
+        console.log(`🔍 DEBUG: Conversation messages length: ${conversation?.messages?.length || 0}`)
 
-      for await (const part of parts) {
-        if (part.type === "field") {
-          if (part.fieldname === "text") {
-            messageText = part.value as string
-          } else if (part.fieldname === "framework") {
-            framework = part.value as string
-          }
-        } else if (part.type === "file") {
-          const uploadStream = attachmentModel.getUploadStream(part.filename || "unknown")
-          await part.file.pipe(uploadStream)
-          attachments.push({
-            filename: part.filename,
-            mimetype: part.mimetype,
-            size: part.file.bytesRead,
-            gridfsId: uploadStream.id,
+        if (!conversation || conversation.userId.toString() !== userId) {
+          console.log(
+            `🔍 DEBUG: Access denied - conversation userId: ${conversation?.userId}, request userId: ${userId}`,
+          )
+          return reply.code(404).send({
+            success: false,
+            error: "Not Found",
+            message: "Conversation not found or access denied",
           })
         }
-      }
 
-      if (!messageText.trim()) {
-        return reply.code(400).send({
-          success: false,
-          error: "ValidationError",
-          message: "Message text is required",
+        console.log(`🔍 DEBUG: Starting to process multipart data...`)
+        const parts = request.parts()
+        let messageText = ""
+        let framework = "phaser.js"
+        const attachments: any[] = []
+
+        console.log(`🔍 DEBUG: Processing parts...`)
+        for await (const part of parts) {
+          console.log(`🔍 DEBUG: Processing part type: ${part.type}, fieldname: ${part.fieldname}`)
+
+          if (part.type === "field") {
+            if (part.fieldname === "text") {
+              messageText = part.value as string
+              console.log(`🔍 DEBUG: Message text length: ${messageText.length}`)
+            } else if (part.fieldname === "framework") {
+              framework = part.value as string
+              console.log(`🔍 DEBUG: Framework: ${framework}`)
+            }
+          } else if (part.type === "file") {
+            console.log(`🔍 DEBUG: Processing file: ${part.filename}`)
+            const uploadStream = attachmentModel.getUploadStream(part.filename || "unknown")
+            await part.file.pipe(uploadStream)
+            attachments.push({
+              filename: part.filename,
+              mimetype: part.mimetype,
+              size: part.file.bytesRead,
+              gridfsId: uploadStream.id,
+            })
+            console.log(`🔍 DEBUG: File processed: ${part.filename}`)
+          }
+        }
+
+        console.log(`🔍 DEBUG: Parts processing complete. Message text: "${messageText.substring(0, 100)}..."`)
+
+        if (!messageText.trim()) {
+          console.log(`🔍 DEBUG: Empty message text, returning 400`)
+          return reply.code(400).send({
+            success: false,
+            error: "ValidationError",
+            message: "Message text is required",
+          })
+        }
+
+        console.log(`🔍 DEBUG: Creating message content...`)
+        const messageContent: MessageContent = {
+          version: 1,
+          text: messageText,
+          editedAt: new Date(),
+        }
+
+        console.log(`🔍 DEBUG: About to call addMessage with:`)
+        console.log(`🔍 DEBUG: - conversationId: ${conversationId}`)
+        console.log(`🔍 DEBUG: - role: user`)
+        console.log(`🔍 DEBUG: - content array length: ${[messageContent].length}`)
+
+        // Test: Re-fetch conversation right before adding message
+        const preTestConversation = await conversationModel.findById(conversationId)
+        console.log(`🔍 DEBUG: Pre-test conversation exists: ${!!preTestConversation}`)
+        console.log(`🔍 DEBUG: Pre-test conversation messages: ${preTestConversation?.messages?.length || 0}`)
+
+        console.log(`🔍 DEBUG: Adding message to conversation...`)
+        const updatedConversation = await conversationModel.addMessage(conversationId, {
+          conversationId: conversation._id!,
+          role: "user",
+          content: [messageContent],
         })
-      }
 
-      const messageContent: MessageContent = {
-        version: 1,
-        text: messageText,
-        editedAt: new Date(),
-      }
+        console.log(`🔍 DEBUG: Message added. Updated conversation exists: ${!!updatedConversation}`)
+        console.log(`🔍 DEBUG: Messages array exists: ${!!updatedConversation?.messages}`)
+        console.log(`🔍 DEBUG: Messages array length: ${updatedConversation?.messages?.length || 0}`)
+        console.log(`🔍 DEBUG: updatedConversation is null: ${updatedConversation === null}`)
+        console.log(`🔍 DEBUG: messages is null/undefined: ${updatedConversation?.messages == null}`)
+        console.log(`🔍 DEBUG: messages length is 0: ${updatedConversation?.messages?.length === 0}`)
 
-      const updatedConversation = await conversationModel.addMessage(conversationId, {
-        conversationId: conversation._id!,
-        role: "user",
-        content: [messageContent],
-      })
+        // Additional debugging - let's see what properties the updatedConversation actually has
+        if (updatedConversation) {
+          console.log(`🔍 DEBUG: updatedConversation keys: ${Object.keys(updatedConversation)}`)
+          console.log(`🔍 DEBUG: updatedConversation._id: ${updatedConversation._id}`)
+          console.log(`🔍 DEBUG: updatedConversation.title: ${updatedConversation.title}`)
+          console.log(`🔍 DEBUG: typeof messages: ${typeof updatedConversation.messages}`)
 
-      if (!updatedConversation) {
-        return reply.code(500).send({
-          success: false,
-          error: "InternalServerError",
-          message: "Failed to add message",
+          // Try to manually fetch the conversation again to see if it was actually updated
+          const postTestConversation = await conversationModel.findById(conversationId)
+          console.log(`🔍 DEBUG: Post-test conversation messages: ${postTestConversation?.messages?.length || 0}`)
+        }
+
+        if (!updatedConversation || !updatedConversation.messages || updatedConversation.messages.length === 0) {
+          console.log(`🔍 DEBUG: Failed to add message - returning 500`)
+          return reply.code(500).send({
+            success: false,
+            error: "InternalServerError",
+            message: "Failed to add message",
+          })
+        }
+
+        const userMessage = updatedConversation.messages[updatedConversation.messages.length - 1]
+        console.log(`🔍 DEBUG: User message ID: ${userMessage._id}`)
+
+        // Save attachments
+        console.log(`🔍 DEBUG: Saving ${attachments.length} attachments...`)
+        for (const attachment of attachments) {
+          await attachmentModel.create(
+            userMessage._id.toString(),
+            attachment.filename,
+            attachment.filename,
+            attachment.mimetype,
+            attachment.size,
+            attachment.gridfsId,
+          )
+        }
+
+        console.log(`🔍 DEBUG: Sending success response...`)
+        reply.code(201).send({
+          success: true,
+          data: {
+            messageId: userMessage._id.toString(),
+            conversationId,
+            streamUrl: `/api/conversations/${conversationId}/messages/${userMessage._id}/stream`,
+          },
+          message: "Message sent successfully. Connect to streamUrl for real-time generation updates.",
         })
-      }
 
-      const userMessage = updatedConversation.messages[updatedConversation.messages.length - 1]
+        // Start streaming generation asynchronously with better error handling
+        console.log(`🚀 STREAM: Starting generation for message ${userMessage._id}`)
 
-      // Save attachments
-      for (const attachment of attachments) {
-        await attachmentModel.create(
-          userMessage._id.toString(),
-          attachment.filename,
-          attachment.filename,
-          attachment.mimetype,
-          attachment.size,
-          attachment.gridfsId,
-        )
-      }
-
-      reply.code(201).send({
-        success: true,
-        data: {
-          messageId: userMessage._id.toString(),
-          conversationId,
-          streamUrl: `/api/conversations/${conversationId}/messages/${userMessage._id}/stream`,
-        },
-        message: "Message sent successfully. Connect to streamUrl for real-time generation updates.",
-      })
-
-      // Start streaming generation asynchronously with better error handling
-      console.log(`🚀 STREAM: Starting generation for message ${userMessage._id}`)
-
-      // Use setTimeout instead of setImmediate for better error handling
-      setTimeout(() => {
-        startStreamingGeneration(conversationId, userMessage._id.toString(), messageText, framework, attachments).catch(
-          (error) => {
+        // Use setTimeout instead of setImmediate for better error handling
+        setTimeout(() => {
+          console.log(`🚀 STREAM: Timeout triggered, calling startStreamingGeneration...`)
+          startStreamingGeneration(
+            conversationId,
+            userMessage._id.toString(),
+            messageText,
+            framework,
+            attachments,
+          ).catch((error) => {
             console.error(`❌ STREAM: Generation failed for message ${userMessage._id}:`, error)
 
             // Try to send error to stream if still active
@@ -485,9 +552,16 @@ export async function conversationRoutes(fastify: FastifyInstance) {
                 console.error("Failed to send error to stream:", streamError)
               }
             }
-          },
-        )
-      }, 100) // Small delay to ensure response is sent first
+          })
+        }, 100) // Small delay to ensure response is sent first
+      } catch (error) {
+        console.error(`❌ DEBUG: Unhandled error in POST /messages:`, error)
+        reply.code(500).send({
+          success: false,
+          error: "InternalServerError",
+          message: "An unexpected error occurred",
+        })
+      }
     },
   )
 
