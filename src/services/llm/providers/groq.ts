@@ -123,22 +123,23 @@ export class GroqProvider implements LLMProvider {
 
 Your expertise includes:
 - **Phaser.js 3.x** - The latest version with modern ES6+ syntax
+- **NPM Package Integration** - Using the official Phaser npm package
 - **Game Architecture** - Proper scene management, game states, and object-oriented design
 - **Asset Management** - Efficient loading, caching, and optimization of sprites, sounds, and animations
 - **Physics Systems** - Arcade Physics, Matter.js integration, collision detection
 - **Performance** - Optimized rendering, object pooling, memory management
-- **Cool Visual Effects** - Particles, tweens, shaders, lighting effects
-- **Audio Integration** - Sound effects, background music, spatial audio
-- **Input Handling** - Keyboard, mouse, touch, gamepad support
-- **Mobile Optimization** - Responsive design, touch controls, performance tuning
 
-## Core Principles:
-- You ONLY use Phaser.js 3.x functions and patterns
-- You NEVER suggest other libraries like Kaboom, React, or Three.js
-- You always provide complete, runnable, production-ready code
-- You follow Phaser.js best practices and modern JavaScript patterns
-- You create engaging games with proper game mechanics and cool assets
-- You include comprehensive error handling and performance optimizations
+## CRITICAL REQUIREMENTS:
+- You MUST generate code that works with the Phaser npm package (import Phaser from 'phaser')
+- You MUST create complete, runnable games that work immediately
+- You MUST include proper HTML file that loads the JavaScript
+- You MUST use modern ES6+ modules and imports
+- You MUST generate games that are fun and engaging to play
+
+## Code Structure Requirements:
+1. **index.html** - Must include Phaser via CDN AND support for ES6 modules
+2. **game.js** - Main game file using proper Phaser imports and modern syntax
+3. **All code must be production-ready and error-free**
 
 IMPORTANT: Always respond in this exact JSON format:
 {
@@ -148,13 +149,13 @@ IMPORTANT: Always respond in this exact JSON format:
     "files": [
       {
         "path": "index.html",
-        "content": "// Complete HTML file with Phaser.js CDN",
+        "content": "// Complete HTML file with Phaser.js CDN and ES6 module support",
         "type": "html",
         "language": "html"
       },
       {
         "path": "game.js",
-        "content": "// Complete Phaser.js game code",
+        "content": "// Complete Phaser.js game code with proper imports",
         "type": "js",
         "language": "javascript"
       }
@@ -268,15 +269,13 @@ The game should be immediately playable in a browser and demonstrate professiona
       if (language === "html" || code.includes("<!DOCTYPE") || code.includes("<html")) {
         extension = "html"
         type = "html"
-        filename = index === 0 ? "index" : `page-${index + 1}`
+        filename = "index"
       } else if (language === "css" || code.includes("body {") || code.includes("@media")) {
         extension = "css"
         type = "css"
         filename = "styles"
       } else if (code.includes("class") && code.includes("extends Phaser.Scene")) {
         filename = "game"
-      } else if (code.includes("assets") || code.includes("preload")) {
-        filename = "assets"
       }
 
       files.push({
@@ -287,7 +286,7 @@ The game should be immediately playable in a browser and demonstrate professiona
       })
     })
 
-    // If no code blocks found, create default Phaser.js files
+    // If no code blocks found, create default npm-compatible Phaser.js files
     if (files.length === 0) {
       files.push(
         {
@@ -317,7 +316,7 @@ The game should be immediately playable in a browser and demonstrate professiona
 </head>
 <body>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
-    <script src="game.js"></script>
+    <script type="module" src="game.js"></script>
 </body>
 </html>`,
           type: "html",
@@ -325,33 +324,90 @@ The game should be immediately playable in a browser and demonstrate professiona
         },
         {
           path: "game.js",
-          content: `// Phaser.js game will be generated here
+          content: `// Phaser.js Game - NPM Compatible
 class GameScene extends Phaser.Scene {
     constructor() {
         super({ key: 'GameScene' });
     }
     
     preload() {
-        // Create placeholder assets
+        // Create simple colored rectangles as sprites
         this.load.image('player', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+        this.load.image('ground', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
     }
     
     create() {
-        this.add.text(400, 300, 'Phaser Game Loading...', {
-            fontSize: '32px',
+        // Create ground platform
+        this.platforms = this.physics.add.staticGroup();
+        this.platforms.create(400, 568, 'ground').setScale(800, 64).refreshBody();
+        
+        // Create player
+        this.player = this.physics.add.sprite(100, 450, 'player');
+        this.player.setDisplaySize(32, 48);
+        this.player.setBounce(0.2);
+        this.player.setCollideWorldBounds(true);
+        this.player.setTint(0x00ff00); // Green color
+        
+        // Player physics
+        this.physics.add.collider(this.player, this.platforms);
+        
+        // Controls
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.wasd = this.input.keyboard.addKeys('W,S,A,D');
+        
+        // Instructions
+        this.add.text(16, 16, 'Use Arrow Keys or WASD to move\\nSpace to jump', {
+            fontSize: '18px',
             fill: '#ffffff'
-        }).setOrigin(0.5);
+        });
+        
+        // Mobile touch controls
+        this.input.on('pointerdown', (pointer) => {
+            if (pointer.x < 400) {
+                this.player.setVelocityX(-160);
+            } else {
+                this.player.setVelocityX(160);
+            }
+            
+            if (pointer.y < 300 && this.player.body.touching.down) {
+                this.player.setVelocityY(-330);
+            }
+        });
+    }
+    
+    update() {
+        // Player movement
+        if (this.cursors.left.isDown || this.wasd.A.isDown) {
+            this.player.setVelocityX(-160);
+        } else if (this.cursors.right.isDown || this.wasd.D.isDown) {
+            this.player.setVelocityX(160);
+        } else {
+            this.player.setVelocityX(0);
+        }
+        
+        if ((this.cursors.up.isDown || this.wasd.W.isDown || this.cursors.space.isDown) && this.player.body.touching.down) {
+            this.player.setVelocityY(-330);
+        }
     }
 }
 
+// Game configuration
 const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    backgroundColor: '#2c3e50',
+    backgroundColor: '#87CEEB',
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 300 },
+            debug: false
+        }
+    },
     scene: GameScene
 };
 
+// Start the game
 const game = new Phaser.Game(config);`,
           type: "js",
           language: "javascript",

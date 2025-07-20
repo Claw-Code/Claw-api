@@ -380,11 +380,6 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       try {
         const conversation = await conversationModel.findById(conversationId)
         console.log(`🔍 DEBUG: Conversation found: ${!!conversation}`)
-        console.log(`🔍 DEBUG: Conversation title: ${conversation?.title}`)
-        console.log(`🔍 DEBUG: Conversation userId: ${conversation?.userId}`)
-        console.log(`🔍 DEBUG: Conversation messages exists: ${!!conversation?.messages}`)
-        console.log(`🔍 DEBUG: Conversation messages is array: ${Array.isArray(conversation?.messages)}`)
-        console.log(`🔍 DEBUG: Conversation messages length: ${conversation?.messages?.length || 0}`)
 
         if (!conversation || conversation.userId.toString() !== userId) {
           console.log(
@@ -447,16 +442,6 @@ export async function conversationRoutes(fastify: FastifyInstance) {
           editedAt: new Date(),
         }
 
-        console.log(`🔍 DEBUG: About to call addMessage with:`)
-        console.log(`🔍 DEBUG: - conversationId: ${conversationId}`)
-        console.log(`🔍 DEBUG: - role: user`)
-        console.log(`🔍 DEBUG: - content array length: ${[messageContent].length}`)
-
-        // Test: Re-fetch conversation right before adding message
-        const preTestConversation = await conversationModel.findById(conversationId)
-        console.log(`🔍 DEBUG: Pre-test conversation exists: ${!!preTestConversation}`)
-        console.log(`🔍 DEBUG: Pre-test conversation messages: ${preTestConversation?.messages?.length || 0}`)
-
         console.log(`🔍 DEBUG: Adding message to conversation...`)
         const updatedConversation = await conversationModel.addMessage(conversationId, {
           conversationId: conversation._id!,
@@ -465,23 +450,6 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         })
 
         console.log(`🔍 DEBUG: Message added. Updated conversation exists: ${!!updatedConversation}`)
-        console.log(`🔍 DEBUG: Messages array exists: ${!!updatedConversation?.messages}`)
-        console.log(`🔍 DEBUG: Messages array length: ${updatedConversation?.messages?.length || 0}`)
-        console.log(`🔍 DEBUG: updatedConversation is null: ${updatedConversation === null}`)
-        console.log(`🔍 DEBUG: messages is null/undefined: ${updatedConversation?.messages == null}`)
-        console.log(`🔍 DEBUG: messages length is 0: ${updatedConversation?.messages?.length === 0}`)
-
-        // Additional debugging - let's see what properties the updatedConversation actually has
-        if (updatedConversation) {
-          console.log(`🔍 DEBUG: updatedConversation keys: ${Object.keys(updatedConversation)}`)
-          console.log(`🔍 DEBUG: updatedConversation._id: ${updatedConversation._id}`)
-          console.log(`🔍 DEBUG: updatedConversation.title: ${updatedConversation.title}`)
-          console.log(`🔍 DEBUG: typeof messages: ${typeof updatedConversation.messages}`)
-
-          // Try to manually fetch the conversation again to see if it was actually updated
-          const postTestConversation = await conversationModel.findById(conversationId)
-          console.log(`🔍 DEBUG: Post-test conversation messages: ${postTestConversation?.messages?.length || 0}`)
-        }
 
         if (!updatedConversation || !updatedConversation.messages || updatedConversation.messages.length === 0) {
           console.log(`🔍 DEBUG: Failed to add message - returning 500`)
@@ -1037,6 +1005,25 @@ eventSource.onmessage = (event) => {
     },
   )
 
+  // DEBUG: Get running previews
+  fastify.get(
+    "/debug/previews",
+    {
+      schema: {
+        tags: ["Debug"],
+        description: "🔧 Get list of running preview servers",
+      },
+    },
+    async (request, reply) => {
+      const previews = codeCompiler.getRunningPreviews()
+      reply.send({
+        success: true,
+        data: previews,
+        count: Object.keys(previews).length,
+      })
+    },
+  )
+
   // --- STREAMING GENERATION FUNCTION ---
 
   async function startStreamingGeneration(
@@ -1096,10 +1083,17 @@ eventSource.onmessage = (event) => {
       const parsedResponse = JSON.parse(llmResponseText)
 
       // Create live preview
+      console.log(`🚀 STREAM: Creating preview for ${streamKey}`)
       sendUpdate({ type: "preview_start", content: "🚀 Launching live preview environment..." })
 
       try {
         const previewEnv = await codeCompiler.compileAndPreview(parsedResponse.codeResponse)
+        console.log(`🔍 STREAM: Preview result for ${streamKey}:`, {
+          status: previewEnv.status,
+          url: previewEnv.url,
+          id: previewEnv.id,
+        })
+
         if (previewEnv.status === "ready") {
           parsedResponse.codeResponse.previewUrl = previewEnv.url
           sendUpdate({
@@ -1107,12 +1101,14 @@ eventSource.onmessage = (event) => {
             url: previewEnv.url,
             buildLogs: previewEnv.buildLogs,
           })
+          console.log(`✅ STREAM: Preview ready for ${streamKey}: ${previewEnv.url}`)
         } else {
           sendUpdate({
             type: "preview_error",
             error: "Preview build failed",
             buildLogs: previewEnv.buildLogs,
           })
+          console.log(`❌ STREAM: Preview failed for ${streamKey}:`, previewEnv.buildLogs)
         }
       } catch (previewError) {
         console.error(`⚠️ STREAM: Preview failed for ${streamKey}:`, previewError)
@@ -1123,10 +1119,12 @@ eventSource.onmessage = (event) => {
       }
 
       // Generate download link
+      console.log(`📦 STREAM: Generating download link for ${streamKey}`)
       try {
         const downloadUrl = await codeCompiler.generateDownloadLink(parsedResponse.codeResponse)
         parsedResponse.codeResponse.downloadUrl = downloadUrl
         sendUpdate({ type: "download_ready", url: downloadUrl })
+        console.log(`✅ STREAM: Download ready for ${streamKey}: ${downloadUrl}`)
       } catch (downloadError) {
         console.error(`⚠️ STREAM: Download generation failed for ${streamKey}:`, downloadError)
         // Continue without download link

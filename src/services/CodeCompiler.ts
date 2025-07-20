@@ -9,190 +9,137 @@ const execAsync = promisify(exec)
 
 export class CodeCompiler {
   private workspaceDir: string
-  private previewPort = 3000
+  private runningPreviews: Map<string, any> = new Map()
 
   constructor() {
     this.workspaceDir = process.env.WORKSPACE_DIR || "./workspace"
+    console.log(`🔧 CodeCompiler initialized with workspace: ${this.workspaceDir}`)
   }
 
   async compileAndPreview(generatedCode: GeneratedCode): Promise<PreviewEnvironment> {
     const projectId = uuidv4()
     const projectDir = join(this.workspaceDir, projectId)
 
+    console.log(`🚀 DEBUG: Starting compileAndPreview for project ${projectId}`)
+    console.log(`🚀 DEBUG: Project directory: ${projectDir}`)
+    console.log(`🚀 DEBUG: Generated code files: ${generatedCode.files.length}`)
+
     try {
       // Create project directory
+      console.log(`📁 DEBUG: Creating project directory...`)
       await fs.mkdir(projectDir, { recursive: true })
+      console.log(`✅ DEBUG: Project directory created`)
 
-      // Write files
+      // Write all files
+      console.log(`📄 DEBUG: Writing files...`)
       await this.writeFiles(projectDir, generatedCode.files)
+      console.log(`✅ DEBUG: Files written`)
 
-      // Setup package.json for Phaser.js projects
-      await this.setupPhaserPackageJson(projectDir, generatedCode.framework)
+      // Create package.json for Phaser.js
+      console.log(`📦 DEBUG: Creating package.json...`)
+      await this.createPhaserPackageJson(projectDir)
+      console.log(`✅ DEBUG: Package.json created`)
 
-      // Install dependencies
       const buildLogs: string[] = []
       buildLogs.push("🎮 Setting up Phaser.js project...")
 
-      if (generatedCode.framework === "phaser.js") {
-        // For Phaser.js, we don't need npm install since it uses CDN
-        buildLogs.push("✅ Phaser.js project ready (using CDN)")
-
-        // Create a simple HTTP server for preview
-        await this.createSimpleServer(projectDir)
-        buildLogs.push("✅ HTTP server created for game preview")
-      } else {
-        // For other frameworks, install dependencies
-        const { stdout: installOutput } = await execAsync("npm install", {
-          cwd: projectDir,
-          timeout: 120000,
-        })
-        buildLogs.push(installOutput)
-
-        // Build the project
-        buildLogs.push("🔨 Building project...")
-        const { stdout: buildOutput } = await execAsync("npm run build", {
-          cwd: projectDir,
-          timeout: 180000,
-        })
-        buildLogs.push(buildOutput)
-      }
-
-      // Start preview server
+      // Get available port FIRST
+      console.log(`🔌 DEBUG: Getting available port...`)
       const port = await this.getAvailablePort()
+      console.log(`✅ DEBUG: Got port: ${port}`)
       const previewUrl = `http://localhost:${port}`
 
-      // Start the server in background
-      this.startPreviewServer(projectDir, port, generatedCode.framework)
+      // Start simple HTTP server
+      console.log(`🚀 DEBUG: Starting server on port ${port}...`)
+      const serverStarted = await this.startSimpleServer(projectDir, port, projectId)
 
-      return {
-        id: projectId,
-        url: previewUrl,
-        status: "ready",
-        buildLogs,
+      if (serverStarted) {
+        buildLogs.push(`✅ Server started on port ${port}`)
+        console.log(`✅ DEBUG: Server started successfully on ${previewUrl}`)
+
+        return {
+          id: projectId,
+          url: previewUrl,
+          status: "ready",
+          buildLogs,
+        }
+      } else {
+        console.log(`❌ DEBUG: Server failed to start`)
+        return {
+          id: projectId,
+          url: "",
+          status: "error",
+          buildLogs: ["❌ Failed to start preview server"],
+        }
       }
     } catch (error) {
+      console.error(`❌ DEBUG: Preview failed for ${projectId}:`, error)
       return {
         id: projectId,
         url: "",
         status: "error",
-        buildLogs: [`Build failed: ${error}`],
+        buildLogs: [`Build failed: ${error instanceof Error ? error.message : "Unknown error"}`],
       }
     }
   }
 
   private async writeFiles(projectDir: string, files: CodeFile[]): Promise<void> {
+    console.log(`📄 DEBUG: Writing ${files.length} files to ${projectDir}`)
+
     for (const file of files) {
       const filePath = join(projectDir, file.path)
       const fileDir = join(filePath, "..")
 
+      console.log(`📄 DEBUG: Writing file: ${file.path} (${file.content.length} chars)`)
       await fs.mkdir(fileDir, { recursive: true })
       await fs.writeFile(filePath, file.content, "utf8")
+      console.log(`✅ DEBUG: Written file: ${file.path}`)
     }
   }
 
-  private async setupPhaserPackageJson(projectDir: string, framework: string): Promise<void> {
-    const packageJsonPath = join(projectDir, "package.json")
-
-    try {
-      await fs.access(packageJsonPath)
-      return // package.json already exists
-    } catch {
-      // Create package.json based on framework
-      const packageJson = this.getPhaserPackageJson(framework)
-      await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2))
-    }
-  }
-
-  private getPhaserPackageJson(framework: string) {
-    const basePackage = {
-      name: "phaser-game-generated",
+  private async createPhaserPackageJson(projectDir: string): Promise<void> {
+    const packageJson = {
+      name: "phaser-game-preview",
       version: "1.0.0",
       private: true,
-      description: "Generated Phaser.js game",
+      description: "Generated Phaser.js game preview",
       main: "index.html",
+      scripts: {
+        start: "node server.js",
+        dev: "node server.js",
+      },
+      dependencies: {
+        phaser: "^3.70.0",
+      },
     }
 
-    switch (framework.toLowerCase()) {
-      case "phaser.js":
-      case "phaser":
-        return {
-          ...basePackage,
-          scripts: {
-            start: "http-server -p 3000 -c-1",
-            dev: "http-server -p 3000 -c-1",
-            build: "echo 'Phaser.js game ready for deployment'",
-          },
-          devDependencies: {
-            "http-server": "^14.1.1",
-          },
-          dependencies: {
-            // Phaser.js is loaded via CDN, no npm dependencies needed
-          },
-        }
-
-      case "next.js":
-      case "nextjs":
-        return {
-          ...basePackage,
-          scripts: {
-            dev: "next dev",
-            build: "next build",
-            start: "next start",
-            lint: "next lint",
-          },
-          dependencies: {
-            next: "^14.0.0",
-            react: "^18.0.0",
-            "react-dom": "^18.0.0",
-            phaser: "^3.70.0",
-          },
-          devDependencies: {
-            "@types/node": "^20.0.0",
-            "@types/react": "^18.0.0",
-            "@types/react-dom": "^18.0.0",
-            typescript: "^5.0.0",
-            eslint: "^8.0.0",
-            "eslint-config-next": "^14.0.0",
-          },
-        }
-
-      case "react":
-        return {
-          ...basePackage,
-          scripts: {
-            dev: "vite",
-            build: "vite build",
-            start: "vite preview",
-            lint: "eslint src",
-          },
-          dependencies: {
-            react: "^18.0.0",
-            "react-dom": "^18.0.0",
-            phaser: "^3.70.0",
-          },
-          devDependencies: {
-            "@types/react": "^18.0.0",
-            "@types/react-dom": "^18.0.0",
-            "@vitejs/plugin-react": "^4.0.0",
-            typescript: "^5.0.0",
-            vite: "^5.0.0",
-          },
-        }
-
-      default:
-        return basePackage
-    }
+    const packagePath = join(projectDir, "package.json")
+    await fs.writeFile(packagePath, JSON.stringify(packageJson, null, 2))
+    console.log(`📦 DEBUG: Package.json written to ${packagePath}`)
   }
 
-  private async createSimpleServer(projectDir: string): Promise<void> {
-    // Create a simple Node.js server for Phaser.js games
-    const serverCode = `
+  private async startSimpleServer(projectDir: string, port: number, projectId: string): Promise<boolean> {
+    console.log(`🚀 DEBUG: startSimpleServer called for ${projectId} on port ${port}`)
+
+    try {
+      // Create a simple Node.js server script
+      const serverScript = `
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+console.log('🚀 Starting Phaser.js preview server...');
+
 const server = http.createServer((req, res) => {
+  console.log('📥 Request:', req.method, req.url);
+  
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
+  console.log('📄 Serving file:', filePath);
   
   const extname = path.extname(filePath);
   let contentType = 'text/html';
@@ -213,31 +160,122 @@ const server = http.createServer((req, res) => {
     case '.jpg':
       contentType = 'image/jpg';
       break;
+    case '.gif':
+      contentType = 'image/gif';
+      break;
   }
   
   fs.readFile(filePath, (error, content) => {
     if (error) {
+      console.error('❌ File error:', error.code, filePath);
       if (error.code === 'ENOENT') {
         res.writeHead(404);
-        res.end('File not found');
+        res.end('File not found: ' + req.url);
       } else {
         res.writeHead(500);
         res.end('Server error: ' + error.code);
       }
     } else {
+      console.log('✅ Serving:', filePath, 'as', contentType);
       res.writeHead(200, { 'Content-Type': contentType });
       res.end(content, 'utf-8');
     }
   });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log('Phaser.js game server running on port ' + PORT);
+const PORT = ${port};
+server.listen(PORT, '0.0.0.0', () => {
+  console.log('✅ Phaser.js preview server running on http://localhost:' + PORT);
+});
+
+server.on('error', (err) => {
+  console.error('❌ Server error:', err);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('🛑 Shutting down server...');
+  server.close(() => {
+    console.log('✅ Preview server stopped');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 Shutting down server...');
+  server.close(() => {
+    console.log('✅ Preview server stopped');
+    process.exit(0);
+  });
 });
 `
 
-    await fs.writeFile(join(projectDir, "server.js"), serverCode)
+      const serverPath = join(projectDir, "server.js")
+      await fs.writeFile(serverPath, serverScript)
+      console.log(`📄 DEBUG: Server script written to ${serverPath}`)
+
+      // Start the server using spawn
+      const { spawn } = require("child_process")
+
+      console.log(`🚀 DEBUG: Spawning node process...`)
+      const serverProcess = spawn("node", ["server.js"], {
+        cwd: projectDir,
+        detached: false,
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+
+      console.log(`🚀 DEBUG: Server process spawned with PID: ${serverProcess.pid}`)
+
+      // Store the process for cleanup
+      this.runningPreviews.set(projectId, serverProcess)
+
+      // Set up logging
+      serverProcess.stdout?.on("data", (data) => {
+        console.log(`📡 Preview ${projectId}: ${data.toString().trim()}`)
+      })
+
+      serverProcess.stderr?.on("data", (data) => {
+        console.error(`❌ Preview ${projectId} error: ${data.toString().trim()}`)
+      })
+
+      serverProcess.on("exit", (code, signal) => {
+        console.log(`🔚 Preview ${projectId} exited with code ${code}, signal ${signal}`)
+        this.runningPreviews.delete(projectId)
+      })
+
+      serverProcess.on("error", (error) => {
+        console.error(`❌ Preview ${projectId} spawn error:`, error)
+        this.runningPreviews.delete(projectId)
+      })
+
+      // Wait for server to start and test it
+      console.log(`⏳ DEBUG: Waiting for server to start...`)
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+
+      // Test if server is actually running
+      console.log(`🧪 DEBUG: Testing server at http://localhost:${port}`)
+      try {
+        const testResponse = await fetch(`http://localhost:${port}`, {
+          method: "GET",
+          timeout: 5000,
+        })
+        console.log(`🧪 DEBUG: Server test response: ${testResponse.status}`)
+
+        if (testResponse.ok) {
+          console.log(`✅ DEBUG: Server is responding correctly`)
+          return true
+        } else {
+          console.log(`❌ DEBUG: Server responded with error: ${testResponse.status}`)
+          return false
+        }
+      } catch (testError) {
+        console.error(`❌ DEBUG: Server test failed:`, testError)
+        return false
+      }
+    } catch (error) {
+      console.error(`❌ DEBUG: Failed to start server:`, error)
+      return false
+    }
   }
 
   private async getAvailablePort(): Promise<number> {
@@ -247,70 +285,139 @@ server.listen(PORT, () => {
       const server = net.createServer()
       server.listen(0, () => {
         const port = (server.address() as any)?.port || 3000
+        console.log(`🔌 DEBUG: Found available port: ${port}`)
         server.close(() => resolve(port))
       })
     })
   }
 
-  private startPreviewServer(projectDir: string, port: number, framework: string): void {
-    const { spawn } = require("child_process")
-
-    let command: string
-    let args: string[]
-
-    if (framework === "phaser.js") {
-      // Use the simple Node.js server for Phaser.js games
-      command = "node"
-      args = ["server.js"]
-    } else {
-      // Use npm start for other frameworks
-      command = "npm"
-      args = ["start"]
-    }
-
-    const server = spawn(command, args, {
-      cwd: projectDir,
-      env: { ...process.env, PORT: port.toString() },
-      detached: true,
-      stdio: "ignore",
-    })
-
-    server.unref()
-  }
-
   async generateDownloadLink(generatedCode: GeneratedCode): Promise<string> {
-    const archiver = require("archiver")
-    const { createWriteStream } = require("fs")
-    const { join } = require("path")
+    console.log(`📦 DEBUG: generateDownloadLink called`)
+    console.log(`📦 DEBUG: Files to zip: ${generatedCode.files.length}`)
 
-    const downloadId = uuidv4()
-    const zipPath = join(this.workspaceDir, "downloads", `${downloadId}.zip`)
+    try {
+      const archiver = require("archiver")
+      const { createWriteStream } = require("fs")
 
-    await fs.mkdir(join(this.workspaceDir, "downloads"), { recursive: true })
+      const downloadId = uuidv4()
+      const downloadsDir = join(this.workspaceDir, "downloads")
+      const zipPath = join(downloadsDir, `${downloadId}.zip`)
 
-    const output = createWriteStream(zipPath)
-    const archive = archiver("zip", { zlib: { level: 9 } })
+      console.log(`📦 DEBUG: Download ID: ${downloadId}`)
+      console.log(`📦 DEBUG: Downloads dir: ${downloadsDir}`)
+      console.log(`📦 DEBUG: Zip path: ${zipPath}`)
 
-    archive.pipe(output)
+      // Ensure downloads directory exists
+      await fs.mkdir(downloadsDir, { recursive: true })
+      console.log(`📁 DEBUG: Downloads directory created/verified`)
 
-    // Add files to archive
-    for (const file of generatedCode.files) {
-      archive.append(file.content, { name: file.path })
+      const output = createWriteStream(zipPath)
+      const archive = archiver("zip", { zlib: { level: 9 } })
+
+      return new Promise((resolve, reject) => {
+        output.on("close", () => {
+          const downloadUrl = `/api/download/${downloadId}`
+          console.log(`✅ DEBUG: ZIP created successfully: ${zipPath}`)
+          console.log(`✅ DEBUG: Download URL: ${downloadUrl}`)
+          console.log(`✅ DEBUG: ZIP size: ${archive.pointer()} bytes`)
+          resolve(downloadUrl)
+        })
+
+        archive.on("error", (err) => {
+          console.error(`❌ DEBUG: Archive error:`, err)
+          reject(err)
+        })
+
+        output.on("error", (err) => {
+          console.error(`❌ DEBUG: Output stream error:`, err)
+          reject(err)
+        })
+
+        archive.pipe(output)
+
+        // Add files to archive
+        console.log(`📦 DEBUG: Adding ${generatedCode.files.length} files to archive...`)
+        for (const file of generatedCode.files) {
+          console.log(`📄 DEBUG: Adding file to zip: ${file.path}`)
+          archive.append(file.content, { name: file.path })
+        }
+
+        // Add package.json
+        const packageJson = {
+          name: "phaser-game-generated",
+          version: "1.0.0",
+          description: "Generated Phaser.js game",
+          main: "index.html",
+          scripts: {
+            start: "node server.js",
+            dev: "node server.js",
+          },
+          dependencies: {
+            phaser: "^3.70.0",
+          },
+        }
+
+        console.log(`📦 DEBUG: Adding package.json to zip`)
+        archive.append(JSON.stringify(packageJson, null, 2), { name: "package.json" })
+
+        // Add server.js for local running
+        const serverScript = `
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+const server = http.createServer((req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
+  
+  const extname = path.extname(filePath);
+  let contentType = 'text/html';
+  
+  switch (extname) {
+    case '.js': contentType = 'text/javascript'; break;
+    case '.css': contentType = 'text/css'; break;
+    case '.json': contentType = 'application/json'; break;
+    case '.png': contentType = 'image/png'; break;
+    case '.jpg': contentType = 'image/jpg'; break;
+  }
+  
+  fs.readFile(filePath, (error, content) => {
+    if (error) {
+      res.writeHead(error.code === 'ENOENT' ? 404 : 500);
+      res.end(error.code === 'ENOENT' ? 'File not found' : 'Server error');
+    } else {
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(content, 'utf-8');
     }
+  });
+});
 
-    // Add README for Phaser.js projects
-    if (generatedCode.framework === "phaser.js") {
-      const readme = `# Phaser.js Game
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log('Phaser.js game server running on http://localhost:' + PORT);
+});
+`
+
+        console.log(`📦 DEBUG: Adding server.js to zip`)
+        archive.append(serverScript, { name: "server.js" })
+
+        // Add README
+        const readme = `# Phaser.js Game
 
 This is a generated Phaser.js game created by Claw API.
 
 ## How to Run
 
-1. Open \`index.html\` in a web browser
-2. Or serve it with a local HTTP server:
+1. Start the server:
    \`\`\`bash
-   npx http-server -p 3000
+   node server.js
    \`\`\`
+
+2. Open http://localhost:3000 in your browser
+
+## Alternative (No server required)
+
+Simply open \`index.html\` in a modern web browser.
 
 ## Game Features
 
@@ -320,19 +427,53 @@ This is a generated Phaser.js game created by Claw API.
 - Optimized for performance
 - Cross-browser compatible
 
-## Customization
-
-- Edit \`game.js\` to modify game logic
-- Modify \`index.html\` for styling changes
-- Add assets to enhance the game experience
-
 Enjoy your game!
 `
-      archive.append(readme, { name: "README.md" })
+        console.log(`📦 DEBUG: Adding README.md to zip`)
+        archive.append(readme, { name: "README.md" })
+
+        console.log(`📦 DEBUG: Finalizing archive...`)
+        archive.finalize()
+      })
+    } catch (error) {
+      console.error(`❌ DEBUG: generateDownloadLink failed:`, error)
+      throw error
     }
+  }
 
-    await archive.finalize()
+  // Debug method to check running previews
+  getRunningPreviews(): { [key: string]: any } {
+    const previews: { [key: string]: any } = {}
+    for (const [projectId, process] of this.runningPreviews) {
+      previews[projectId] = {
+        pid: process.pid,
+        killed: process.killed,
+        exitCode: process.exitCode,
+      }
+    }
+    console.log(`🔍 DEBUG: Running previews:`, previews)
+    return previews
+  }
 
-    return `/api/download/${downloadId}`
+  // Cleanup method
+  stopPreview(projectId: string): void {
+    const process = this.runningPreviews.get(projectId)
+    if (process) {
+      process.kill("SIGTERM")
+      this.runningPreviews.delete(projectId)
+      console.log(`🛑 DEBUG: Stopped preview ${projectId}`)
+    } else {
+      console.log(`⚠️ DEBUG: No preview found for ${projectId}`)
+    }
+  }
+
+  // Cleanup all previews
+  stopAllPreviews(): void {
+    console.log(`🛑 DEBUG: Stopping all previews (${this.runningPreviews.size} running)`)
+    for (const [projectId, process] of this.runningPreviews) {
+      process.kill("SIGTERM")
+      console.log(`🛑 DEBUG: Stopped preview ${projectId}`)
+    }
+    this.runningPreviews.clear()
   }
 }
