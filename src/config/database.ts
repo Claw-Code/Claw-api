@@ -4,62 +4,23 @@ class Database {
   private client: MongoClient
   private db: Db
   private isConnected = false
-  private maxRetries = 5
-  private retryDelay = 2000
 
   constructor() {
     const mongoUrl = process.env.MONGODB_URL || "mongodb://localhost:27017"
-    this.client = new MongoClient(mongoUrl, {
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      maxPoolSize: 10,
-      minPoolSize: 2,
-      retryWrites: true,
-      retryReads: true,
-    })
+    this.client = new MongoClient(mongoUrl)
   }
 
   async connect(): Promise<void> {
-    let retries = 0
-
-    while (retries < this.maxRetries && !this.isConnected) {
-      try {
-        console.log(`🔄 Attempting to connect to MongoDB (attempt ${retries + 1}/${this.maxRetries})...`)
-
-        await this.client.connect()
-        this.db = this.client.db(process.env.DB_NAME || "claw_api")
-
-        // Test the connection
-        await this.db.admin().ping()
-
-        this.isConnected = true
-        console.log("✅ Connected to MongoDB successfully")
-
-        // Setup connection event listeners
-        this.client.on("error", (error) => {
-          console.error("❌ MongoDB connection error:", error)
-          this.isConnected = false
-        })
-
-        this.client.on("close", () => {
-          console.log("⚠️ MongoDB connection closed")
-          this.isConnected = false
-        })
-
-        return
-      } catch (error) {
-        retries++
-        console.error(`❌ MongoDB connection attempt ${retries} failed:`, error)
-
-        if (retries >= this.maxRetries) {
-          throw new Error(`Failed to connect to MongoDB after ${this.maxRetries} attempts: ${error}`)
-        }
-
-        console.log(`⏳ Retrying in ${this.retryDelay}ms...`)
-        await new Promise((resolve) => setTimeout(resolve, this.retryDelay))
-        this.retryDelay *= 1.5 // Exponential backoff
-      }
+    try {
+      console.log("🔄 Connecting to MongoDB...")
+      await this.client.connect()
+      this.db = this.client.db(process.env.DB_NAME || "claw_api")
+      await this.db.admin().ping()
+      this.isConnected = true
+      console.log("✅ Connected to MongoDB successfully")
+    } catch (error) {
+      console.error("❌ MongoDB connection failed:", error)
+      throw error
     }
   }
 
@@ -80,10 +41,7 @@ class Database {
 
   async healthCheck(): Promise<boolean> {
     try {
-      if (!this.isConnected || !this.db) {
-        return false
-      }
-
+      if (!this.isConnected || !this.db) return false
       await this.db.admin().ping()
       return true
     } catch {

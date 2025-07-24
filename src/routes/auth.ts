@@ -55,22 +55,6 @@ export async function authRoutes(fastify: FastifyInstance) {
               message: { type: "string" },
             },
           },
-          409: {
-            type: "object",
-            properties: {
-              success: { type: "boolean" },
-              error: { type: "string" },
-              message: { type: "string" },
-            },
-          },
-          400: {
-            type: "object",
-            properties: {
-              success: { type: "boolean" },
-              error: { type: "string" },
-              message: { type: "string" },
-            },
-          },
         },
       },
     },
@@ -146,14 +130,6 @@ export async function authRoutes(fastify: FastifyInstance) {
               message: { type: "string" },
             },
           },
-          401: {
-            type: "object",
-            properties: {
-              success: { type: "boolean" },
-              error: { type: "string" },
-              message: { type: "string" },
-            },
-          },
         },
       },
     },
@@ -192,7 +168,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     },
   )
 
-  // Get user profile (protected route)
+  // Get user profile
   fastify.get(
     "/profile",
     {
@@ -216,22 +192,6 @@ export async function authRoutes(fastify: FastifyInstance) {
                   updatedAt: { type: "string", format: "date-time" },
                 },
               },
-            },
-          },
-          401: {
-            type: "object",
-            properties: {
-              success: { type: "boolean" },
-              error: { type: "string" },
-              message: { type: "string" },
-            },
-          },
-          404: {
-            type: "object",
-            properties: {
-              success: { type: "boolean" },
-              error: { type: "string" },
-              message: { type: "string" },
             },
           },
         },

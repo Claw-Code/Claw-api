@@ -18,7 +18,6 @@ export async function setupAuth(fastify: FastifyInstance) {
   })
 }
 
-// Add authenticate to FastifyInstance interface
 declare module "fastify" {
   export interface FastifyInstance {
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>

@@ -1,27 +1,24 @@
-# Fixed production Dockerfile with proper native module handling
-FROM node:18-bullseye AS base
+FROM node:20-alpine AS base
 
-# Install system dependencies for native module compilation
-RUN apt-get update && apt-get install -y \
+# Install system dependencies
+RUN apk update && apk add --no-cache \
     python3 \
     make \
     g++ \
     git \
     curl \
     bash \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    build-base
 
 WORKDIR /app
 
 # Development stage
 FROM base AS development
 
-# Copy package files and .npmrc
+# Copy package files
 COPY package*.json ./
-COPY .npmrc ./
 
-# Install dependencies and rebuild native modules
+# Install dependencies
 RUN npm install --legacy-peer-deps && \
     npm rebuild bcrypt --build-from-source && \
     npm cache clean --force
@@ -29,49 +26,16 @@ RUN npm install --legacy-peer-deps && \
 # Copy source code
 COPY . .
 
-# Create workspace directory
-RUN mkdir -p workspace/downloads logs
-
-# Create startup script for development
-RUN cat > /app/start-dev.sh << 'EOF'
-#!/bin/bash
-set -e
-
-echo "🚀 Starting Claw API in development mode..."
-
-# Rebuild native modules to ensure compatibility
-echo "🔧 Rebuilding native modules..."
-npm rebuild bcrypt --build-from-source
-
-# Wait for MongoDB to be available
-echo "⏳ Waiting for MongoDB to be ready..."
-while ! curl -s mongodb:27017 > /dev/null; do
-  echo "Waiting for MongoDB..."
-  sleep 2
-done
-
-echo "✅ MongoDB is ready!"
-
-# Start the application
-echo "🌟 Starting API server..."
-if [ "$NODE_ENV" = "production" ]; then
-    npm run build
-    npm start
-else
-    npm run dev
-fi
-EOF
-
-RUN chmod +x /app/start-dev.sh
+# Create logs directory
+RUN mkdir -p logs
 
 # Production stage
 FROM base AS production
 
-# Copy package files and .npmrc
+# Copy package files
 COPY package*.json ./
-COPY .npmrc ./
 
-# Install only production dependencies and rebuild native modules
+# Install only production dependencies
 RUN npm ci --only=production --legacy-peer-deps && \
     npm rebuild bcrypt --build-from-source && \
     npm cache clean --force
@@ -82,17 +46,12 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Create workspace directory
-RUN mkdir -p workspace/downloads logs
-
 # Create non-root user
-RUN groupadd -g 1001 nodejs && \
-    useradd -r -u 1001 -g nodejs clawuser
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S clawuser -u 1001
 
 # Change ownership
-RUN chown -R clawuser:nodejs workspace logs
-
-# Switch to non-root user
+RUN chown -R clawuser:nodejs /app
 USER clawuser
 
 # Expose port
@@ -100,11 +59,11 @@ EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8000/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8000/health || exit 1
 
 # Start the application
 CMD ["npm", "start"]
 
 # Default to development stage
 FROM development AS default
-CMD ["/app/start-dev.sh"]
+CMD ["npm", "run", "dev"]

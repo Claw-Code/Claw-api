@@ -1,201 +1,117 @@
-> **⚠️ Important Note:** This is a **backend-only API** built with Fastify. It is **NOT** a Next.js application. Do not run it with `next dev`. Use the provided npm scripts like `npm run dev` to start the server correctly.
-
 # 🦅 Claw API
 
-AI-powered code generation API for gaming and development, specializing in 2D and 3D game development with modern web technologies.
+**Simple API for user authentication and chat storage with external game generation.**
 
-## 🚀 Features
+## 🚀 Quick Start
 
-- **Multi-LLM Support**: Groq, HuggingFace, Ollama with automatic fallback
-- **Gaming Focus**: Specialized prompts for 2D/3D game development
-- **Real-time Preview**: Live code compilation and hosting
-- **MongoDB Storage**: Persistent chat and user data
-- **Docker Ready**: Complete containerization with embedded MongoDB
-- **Swagger Docs**: Interactive API documentation
-- **Production Ready**: Nginx, Redis, monitoring, and scaling
+### Local Development (No Docker)
 
-## 🎮 Gaming Technologies Supported
-
-- **3D Games**: Three.js, React Three Fiber, WebGL
-- **2D Games**: Phaser, Canvas API, PixiJS
-- **Game Engines**: Custom JavaScript/TypeScript game loops
-- **Physics**: Matter.js, Cannon.js integration
-- **Audio**: Web Audio API, Howler.js
-
-## 🏃‍♂️ Quick Start
-
-### Option 1: Single Container (Recommended for Testing)
+1. **Setup project**:
 \`\`\`bash
-# Clone and setup
 git clone <repository>
 cd claw-api
-
-# Run setup script
-chmod +x scripts/setup-local-fixed.sh
-./scripts/setup-local-fixed.sh
-
-# Choose option 1 for single container
+npm install
+npm run setup
 \`\`\`
 
-### Option 2: Docker Compose (Recommended for Development)
+2. **Start MongoDB**:
 \`\`\`bash
-# Setup with separate services
-./scripts/setup-local-fixed.sh
-
-# Choose option 2 for docker-compose
+docker run -d -p 27017:27017 --name mongodb mongo:7.0
 \`\`\`
 
-## 📚 API Documentation
-
-Once running, visit:
-- **API Server**: http://localhost:8000
-- **Interactive Docs**: http://localhost:8000/docs
-- **Health Check**: http://localhost:8000/health
-
-## 🔧 Environment Variables
-
-Create `.env.local` file:
-\`\`\`env
-# LLM API Keys
-HUGGINGFACE_API_KEY=your_key_here
-GROQ_API_KEY=your_key_here
-
-# Database
-MONGODB_URL=mongodb://localhost:27017/claw_api
-DB_NAME=claw_api
-
-# Application
-NODE_ENV=development
-PORT=8000
-HOST=0.0.0.0
-WORKSPACE_DIR=/app/workspace
+3. **Start development server**:
+\`\`\`bash
+npm run dev
 \`\`\`
 
-## 🧪 Testing
+4. **Access the API**:
+- API: http://localhost:8000
+- Documentation: http://localhost:8000/docs
+- Health: http://localhost:8000/health
+
+### Using Docker
 
 \`\`\`bash
-# Run comprehensive tests
-npm run local:test
+docker-compose up -d
+\`\`\`
 
-# Test individual endpoints
-curl http://localhost:8000/health
+## 📡 API Usage
+
+### 1. Register User
+\`\`\`bash
 curl -X POST http://localhost:8000/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username": "gamer", "email": "gamer@example.com"}'
+  -d '{"username": "gamer", "email": "gamer@example.com", "password": "password123"}'
 \`\`\`
 
-## 🎯 Example Usage
-
-### Create a 3D Game
+### 2. Login
 \`\`\`bash
-curl -X POST http://localhost:8000/api/chats/CHAT_ID/messages \
+curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{
-    "content": "Create a 3D cube game with Three.js where the player can rotate the cube with mouse controls",
-    "framework": "next.js"
-  }'
+  -d '{"email": "gamer@example.com", "password": "password123"}'
 \`\`\`
 
-### Create a 2D Platformer
+### 3. Create Conversation
 \`\`\`bash
-curl -X POST http://localhost:8000/api/chats/CHAT_ID/messages \
+curl -X POST http://localhost:8000/api/conversations \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "content": "Create a 2D platformer game with Phaser.js including player movement, jumping, and collision detection",
-    "framework": "react"
-  }'
+  -d '{"title": "Snake Game"}'
 \`\`\`
 
-## 🛠️ Development Commands
+### 4. Generate Game
+\`\`\`bash
+curl -X POST http://localhost:8000/api/conversations/CONVERSATION_ID/messages \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "text=Create a Snake game"
+\`\`\`
+
+### 5. Stream Updates
+\`\`\`javascript
+const eventSource = new EventSource('http://localhost:8000/api/conversations/CONVERSATION_ID/messages/MESSAGE_ID/stream');
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Event:', data.type, data);
+};
+\`\`\`
+
+## 🛠️ Development
 
 \`\`\`bash
-npm run dev              # Start development server
-npm run build            # Build for production
-npm run local:setup      # Setup local environment
-npm run local:start      # Start local container
-npm run local:stop       # Stop local container
-npm run local:test       # Run tests
-npm run local:mongo      # Access MongoDB shell (for local setup)
-npm run local:logs       # View container logs
-npm run local:clean      # Clean up containers
+npm run dev      # Start development server
+npm run build    # Build for production
+npm start        # Start production server
+npm run setup    # Initial project setup
 \`\`\`
 
-## 🐳 Docker Commands
+## 📁 Project Structure
 
+\`\`\`
+src/
+├── config/          # Database and auth setup
+├── models/          # MongoDB models
+├── routes/          # API routes
+├── services/        # External API integration
+├── types/           # TypeScript types
+└── app.ts           # Main application
+\`\`\`
+
+## 🔧 Configuration
+
+Edit `.env` file:
 \`\`\`bash
-# Build and run
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-
-# Rebuild everything
-docker-compose build --no-cache
+MONGODB_URL=mongodb://localhost:27017/claw_api
+EXTERNAL_GAME_API_URL=http://localhost:3001
+JWT_SECRET=your-secret-key
+PORT=8000
 \`\`\`
 
-## 🔧 Troubleshooting
+## 📋 Requirements
 
-\`\`\`bash
-# Run troubleshooting tool
-./scripts/troubleshoot.sh
-
-# Common fixes
-docker system prune -a                    # Clean up everything
-lsof -i :8000                            # Check port usage
-docker logs claw-local-dev -f            # View container logs
-docker exec -it claw-local-dev bash      # Access container shell
-\`\`\`
-
-## 📊 Architecture
-
-\`\`\`
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Nginx Proxy   │────│   Claw API      │────│   MongoDB       │
-│   (Port 80/443) │    │   (Port 8000)   │    │   (Port 27017)  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                              │
-                       ┌─────────────────┐
-                       │   LLM Services  │
-                       │   - Groq        │
-                       │   - HuggingFace │
-                       │   - Ollama      │
-                       └─────────────────┘
-\`\`\`
-
-## 🚀 Production Deployment
-
-\`\`\`bash
-# Build production image
-docker build -t claw-api:latest .
-
-# Deploy with production compose
-docker-compose -f docker-compose.prod.yml up -d
-
-# Or use deployment script
-./scripts/deploy.sh
-\`\`\`
-
-## 📝 License
-
-MIT License - see LICENSE file for details.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## 🆘 Support
-
-- **Documentation**: http://localhost:8000/docs
-- **Issues**: Create an issue in the repository
-- **Troubleshooting**: Run `./scripts/troubleshoot.sh`
+- Node.js 18+
+- MongoDB (via Docker or local)
+- External Game Generation API running on port 3001
 
 ---
 
-**Claw API** - Empowering game developers with AI-powered code generation 🎮🚀
+**🦅 Claw API** - Simple, clean, and ready to use.

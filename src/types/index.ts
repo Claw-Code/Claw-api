@@ -4,7 +4,7 @@ export interface User {
   _id?: ObjectId
   username: string
   email: string
-  password?: string // Will be hashed
+  password?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -14,11 +14,10 @@ export interface AuthPayload {
   username: string
 }
 
-// Renamed from Chat to Conversation for clarity
 export interface Conversation {
   _id?: ObjectId
   userId: ObjectId
-  title: string // The first user prompt becomes the title
+  title: string
   messages: Message[]
   createdAt: Date
   updatedAt: Date
@@ -29,8 +28,7 @@ export interface Message {
   conversationId: ObjectId
   role: "user" | "assistant"
   content: MessageContent[]
-  attachments?: Attachment[]
-  llmResponse?: LLMResponse[]
+  gameResponse?: GameResponse
   createdAt: Date
   updatedAt: Date
 }
@@ -41,47 +39,74 @@ export interface MessageContent {
   editedAt: Date
 }
 
-export interface Attachment {
-  _id: ObjectId
-  messageId: ObjectId
-  filename: string
-  originalName: string
-  mimetype: string
-  size: number
-  gridfsId: ObjectId
-  uploadedAt: Date
-}
-
-export interface LLMResponse {
+export interface GameResponse {
   version: number
-  provider: string
-  textResponse: string
-  codeResponse?: CodeResponse
-  thinking?: string
+  prompt: string
+  files: GameFile[]
   status: "generating" | "completed" | "error"
   error?: string
+  metadata?: {
+    gameType: string
+    framework: string
+    features: string[]
+  }
   createdAt: Date
 }
 
-export interface CodeResponse {
-  files: CodeFile[]
-  framework: string
-  language: string
-  previewUrl?: string
-  downloadUrl?: string
-}
-
-export interface CodeFile {
+export interface GameFile {
   path: string
   content: string
-  type: "tsx" | "ts" | "css" | "json" | "html" | "md" | "js" | "jsx"
+  type: "html" | "js" | "css" | "json" | "md"
   language: string
 }
 
-export interface LLMProvider {
-  name: string
-  generate: (prompt: string, context?: any) => Promise<string>
-  isAvailable: () => Promise<boolean>
+export interface ExternalAPIResponse {
+  step: number
+  totalSteps: number
+  stepName: string
+  progress: number
+  message: string
+}
+
+export interface FileGeneratedEvent {
+  filename: string
+  content: string
+  type: string
+}
+
+export interface CompleteEvent {
+  files: GameFile[]
+  metadata: {
+    gameType: string
+    framework: string
+    totalFiles: number
+  }
+}
+
+export interface FinalStreamResponse {
+  chatId: string
+  projectId: string
+  totalFiles: number
+  aiGeneratedFiles: number
+  missingFilesGenerated: number
+  chainUsed: string
+  chainSteps: string[]
+  setupInstructions: {
+    npmInstall: string
+    startCommand: string
+    serveCommand: string
+    url: string
+    liveUrl: string
+    port: number
+    projectPath: string
+  }
+  validation: {
+    isComplete: boolean
+    totalFiles: number
+    originalFiles: number
+    missingFiles: string[]
+  }
+  timestamp: string
 }
 
 export interface PreviewEnvironment {
@@ -89,12 +114,5 @@ export interface PreviewEnvironment {
   url: string
   status: "building" | "ready" | "error"
   buildLogs: string[]
-}
-
-export interface GeneratedCode {
-  files: CodeFile[]
-  framework: string
-  language: string
-  previewUrl?: string
-  downloadUrl?: string
+  port?: number
 }
