@@ -1,26 +1,34 @@
-import type { GameFile, ExternalAPIResponse, FileGeneratedEvent, CompleteEvent } from "../types"
+import type { GameFile } from "../types"
 
 export class ExternalGameAPI {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = process.env.EXTERNAL_GAME_API_URL || "http://localhost:3001"
+    this.baseUrl = process.env.EXTERNAL_GAME_API_URL || "http://localhost:3000"
   }
 
   async generateGame(prompt: string, onUpdate?: (event: any) => void): Promise<GameFile[]> {
     console.log(`🎮 Starting external game generation for: ${prompt.substring(0, 100)}...`)
+    console.log(`🌐 External API URL: ${this.baseUrl}/api/generate/simple`)
 
     try {
+      const requestBody = { prompt }
+      console.log(`📤 Sending request:`, requestBody)
+
       const response = await fetch(`${this.baseUrl}/api/generate/simple`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify(requestBody),
       })
 
+      console.log(`📥 Response status: ${response.status} ${response.statusText}`)
+
       if (!response.ok) {
-        throw new Error(`External API error: ${response.status} ${response.statusText}`)
+        const errorText = await response.text()
+        console.error(`❌ External API error response:`, errorText)
+        throw new Error(`External API error: ${response.status} ${response.statusText} - ${errorText}`)
       }
 
       if (!response.body) {
@@ -28,13 +36,19 @@ export class ExternalGameAPI {
       }
 
       const files: GameFile[] = []
+      let liveUrl: string | null = null
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
+
+      console.log(`📡 Starting to read SSE stream...`)
 
       try {
         while (true) {
           const { done, value } = await reader.read()
-          if (done) break
+          if (done) {
+            console.log(`🔚 Stream reading completed`)
+            break
+          }
 
           const chunk = decoder.decode(value, { stream: true })
           const lines = chunk.split("\n")
@@ -43,39 +57,56 @@ export class ExternalGameAPI {
             if (line.trim() === "") continue
 
             try {
-              // Parse SSE format: "event: eventType\ndata: jsonData"
-              if (line.startsWith("event: ")) {
-                continue // Skip event type line
-              }
-
+              // Parse SSE format: "data: jsonData"
               if (line.startsWith("data: ")) {
                 const jsonData = line.substring(6) // Remove "data: " prefix
                 const eventData = JSON.parse(jsonData)
 
-                // Handle different event types
+                console.log(`📨 Received event:`, eventData.type || "file_event", eventData)
+
+                // Handle different event types from external API
                 if (eventData.step !== undefined) {
                   // Progress event
-                  const progressEvent: ExternalAPIResponse = eventData
-                  console.log(`📊 Progress: ${progressEvent.stepName} (${progressEvent.progress}%)`)
+                  console.log(`📊 Progress: ${eventData.stepName} (${eventData.progress}%)`)
 
                   onUpdate?.({
                     type: "progress",
-                    step: progressEvent.step,
-                    totalSteps: progressEvent.totalSteps,
-                    stepName: progressEvent.stepName,
-                    progress: progressEvent.progress,
-                    message: progressEvent.message,
+                    step: eventData.step,
+                    totalSteps: eventData.totalSteps,
+                    stepName: eventData.stepName,
+                    progress: eventData.progress,
+                    message: eventData.message,
                   })
-                } else if (eventData.filename) {
-                  // File generated event
-                  const fileEvent: FileGeneratedEvent = eventData
-                  console.log(`📄 File generated: ${fileEvent.filename}`)
+                } else if (eventData.fileName && eventData.content) {
+                  // Individual file event (fileName with capital N)
+                  console.log(`📄 File generated: ${eventData.fileName} (${eventData.content.length} chars)`)
 
                   const gameFile: GameFile = {
-                    path: fileEvent.filename,
-                    content: fileEvent.content,
-                    type: this.getFileType(fileEvent.filename),
-                    language: this.getLanguage(fileEvent.filename),
+                    path: eventData.fileName,
+                    content: eventData.content,
+                    type: this.getFileType(eventData.fileName),
+                    language: this.getLanguage(eventData.fileName),
+                  }
+
+                  files.push(gameFile)
+
+                  onUpdate?.({
+                    type: "file_generated",
+                    file: gameFile,
+                    fileName: eventData.fileName,
+                    fileType: eventData.fileType,
+                    index: eventData.index,
+                    totalFiles: eventData.totalFiles,
+                  })
+                } else if (eventData.filename && eventData.content) {
+                  // Individual file event (filename with lowercase n - fallback)
+                  console.log(`📄 File generated: ${eventData.filename} (${eventData.content.length} chars)`)
+
+                  const gameFile: GameFile = {
+                    path: eventData.filename,
+                    content: eventData.content,
+                    type: this.getFileType(eventData.filename),
+                    language: this.getLanguage(eventData.filename),
                   }
 
                   files.push(gameFile)
@@ -85,21 +116,51 @@ export class ExternalGameAPI {
                     file: gameFile,
                   })
                 } else if (eventData.files) {
-                  // Complete event
-                  const completeEvent: CompleteEvent = eventData
-                  console.log(`✅ Generation complete: ${completeEvent.files.length} files`)
+                  // Complete event with files array
+                  console.log(`✅ Generation complete: ${eventData.files.length} files`)
 
                   // Add any remaining files
-                  for (const file of completeEvent.files) {
+                  for (const file of eventData.files) {
                     if (!files.find((f) => f.path === file.path)) {
-                      files.push(file)
+                      const gameFile: GameFile = {
+                        path: file.path,
+                        content: file.content,
+                        type: this.getFileType(file.path),
+                        language: this.getLanguage(file.path),
+                      }
+                      files.push(gameFile)
                     }
                   }
 
                   onUpdate?.({
                     type: "complete",
                     files: files,
-                    metadata: completeEvent.metadata,
+                    metadata: eventData.metadata,
+                  })
+                } else if (eventData.chatId && eventData.projectId && eventData.setupInstructions) {
+                  // Final completion event from external API - EXTRACT LIVE URL HERE
+                  console.log(
+                    `🎯 Final completion event: ${eventData.totalFiles} files, project: ${eventData.projectId}`,
+                  )
+
+                  // Extract the live URL from setupInstructions
+                  liveUrl = eventData.setupInstructions.liveUrl || eventData.setupInstructions.url || null
+                  console.log(`🌐 Extracted live URL: ${liveUrl}`)
+
+                  onUpdate?.({
+                    type: "complete",
+                    files: files,
+                    liveUrl: liveUrl, // Pass the live URL to the update handler
+                    metadata: {
+                      gameType: "HTML5 Canvas Game",
+                      framework: "Vanilla JavaScript",
+                      totalFiles: eventData.totalFiles,
+                      projectId: eventData.projectId,
+                      chainUsed: eventData.chainUsed,
+                      chainSteps: eventData.chainSteps,
+                    },
+                    setupInstructions: eventData.setupInstructions,
+                    validation: eventData.validation,
                   })
                 } else if (eventData.error) {
                   // Error event
@@ -110,6 +171,9 @@ export class ExternalGameAPI {
                     details: eventData.details,
                   })
                   throw new Error(eventData.error)
+                } else {
+                  // Unknown event type - log for debugging
+                  console.log(`🔍 Unknown event type:`, eventData)
                 }
               }
             } catch (parseError) {
@@ -122,6 +186,12 @@ export class ExternalGameAPI {
       }
 
       console.log(`✅ External game generation completed: ${files.length} files`)
+
+      // Log all collected files for debugging
+      files.forEach((file, index) => {
+        console.log(`📄 File ${index + 1}: ${file.path} (${file.type}) - ${file.content.length} chars`)
+      })
+
       return files
     } catch (error) {
       console.error(`❌ External game generation failed:`, error)
@@ -172,12 +242,16 @@ export class ExternalGameAPI {
 
   async healthCheck(): Promise<boolean> {
     try {
+      console.log(`🏥 Health checking external API: ${this.baseUrl}/health`)
       const response = await fetch(`${this.baseUrl}/health`, {
         method: "GET",
-        timeout: 5000,
+        signal: AbortSignal.timeout(5000),
       })
-      return response.ok
-    } catch {
+      const isHealthy = response.ok
+      console.log(`🏥 External API health: ${isHealthy ? "✅ healthy" : "❌ unhealthy"}`)
+      return isHealthy
+    } catch (error) {
+      console.log(`🏥 External API health check failed:`, error)
       return false
     }
   }
