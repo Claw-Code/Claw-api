@@ -10,8 +10,6 @@ export async function authRoutes(fastify: FastifyInstance) {
     "/register",
     {
       schema: {
-        tags: ["Authentication"],
-        description: "Register a new user",
         body: {
           type: "object",
           required: ["username", "email", "password"],
@@ -88,8 +86,6 @@ export async function authRoutes(fastify: FastifyInstance) {
     "/login",
     {
       schema: {
-        tags: ["Authentication"],
-        description: "Login a user and get a JWT token",
         body: {
           type: "object",
           required: ["email", "password"],
@@ -143,7 +139,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           message: "Invalid credentials.",
         })
       }
-      const isMatch = await userModel.verifyPassword(password, user.password)
+      const isMatch = await userModel.verifyPassword(password, user.password!)
       if (!isMatch) {
         return reply.code(401).send({
           success: false,
@@ -174,8 +170,6 @@ export async function authRoutes(fastify: FastifyInstance) {
     {
       onRequest: [fastify.authenticate],
       schema: {
-        tags: ["Authentication"],
-        description: "Get current user's profile",
         security: [{ bearerAuth: [] }],
         response: {
           200: {
