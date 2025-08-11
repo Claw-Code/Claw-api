@@ -4,8 +4,8 @@
   "description": "Claw API - Auth + Chat Storage with External Game Generation",
   "main": "dist/app.js",
   "scripts": {
-    "dev": "tsx watch src/app.ts",
-    "build": "tsc",
+    "dev": "node dist/app.js",
+    "build": "node dist/app.js",
     "start": "node dist/app.js",
     "setup": "node scripts/setup.js",
     "clean": "rm -rf node_modules package-lock.json && npm install"
