@@ -5,7 +5,7 @@
   "main": "dist/app.js",
   "scripts": {
     "dev": "node dist/app.js",
-    "build": "node dist/app.js",
+    "build": "tsc",
     "start": "node dist/app.js",
     "setup": "node scripts/setup.js",
     "clean": "rm -rf node_modules package-lock.json && npm install"
