@@ -66,4 +66,4 @@ CMD ["npm", "start"]
 
 # Default to development stage
 FROM development AS default
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "start"]
