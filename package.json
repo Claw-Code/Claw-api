@@ -4,7 +4,7 @@
   "description": "Claw API - Auth + Chat Storage with External Game Generation",
   "main": "dist/app.js",
   "scripts": {
-    "dev": "node dist/app.js",
+    "dev": "tsx watch src/app.ts",
     "build": "tsc",
     "start": "node dist/app.js",
     "setup": "node scripts/setup.js",
