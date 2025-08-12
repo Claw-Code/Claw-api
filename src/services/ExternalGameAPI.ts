@@ -7,12 +7,13 @@ export class ExternalGameAPI {
     this.baseUrl = process.env.EXTERNAL_GAME_API_URL || "http://localhost:3005"
   }
 
-  async generateGame(prompt: string, onUpdate?: (event: any) => void): Promise<GameFile[]> {
+  async generateGame(prompt: string, subdomain: string, onUpdate?: (event: any) => void): Promise<GameFile[]> {
     console.log(`🎮 Starting external game generation for: ${prompt.substring(0, 100)}...`)
     console.log(`🌐 External API URL: ${this.baseUrl}/api/generate/simple`)
+    console.log(`🏷️ Subdomain (conversationId): ${subdomain}`)
 
     try {
-      const requestBody = { prompt }
+      const requestBody = { prompt, subdomain }
       console.log(`📤 Sending request:`, requestBody)
 
       const response = await fetch(`${this.baseUrl}/api/generate/simple`, {

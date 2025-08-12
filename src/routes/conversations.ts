@@ -754,7 +754,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         timestamp: new Date().toISOString(),
       })
 
-      const files = await externalGameAPI.generateGame(prompt, (updateData) => {
+      const files = await externalGameAPI.generateGame(prompt, conversationId, (updateData) => {
         // Capture the live URL when we receive the complete event
         if (updateData.type === "complete" && updateData.liveUrl) {
           livePreviewUrl = updateData.liveUrl
