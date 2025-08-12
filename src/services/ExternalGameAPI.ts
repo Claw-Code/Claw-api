@@ -4,7 +4,7 @@ export class ExternalGameAPI {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = process.env.EXTERNAL_GAME_API_URL || "http://host.docker.internal:3000"
+    this.baseUrl = process.env.EXTERNAL_GAME_API_URL || "http://localhost:3000"
   }
 
   async generateGame(prompt: string, onUpdate?: (event: any) => void): Promise<GameFile[]> {

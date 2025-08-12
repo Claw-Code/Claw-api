@@ -101,7 +101,7 @@ src/
 Edit `.env` file:
 \`\`\`bash
 MONGODB_URL=mongodb://localhost:27017/claw_api
-EXTERNAL_GAME_API_URL=http://localhost:3001
+EXTERNAL_GAME_API_URL=http://localhost:3000
 JWT_SECRET=your-secret-key
 PORT=8000
 \`\`\`
