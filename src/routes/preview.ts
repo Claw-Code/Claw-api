@@ -30,7 +30,7 @@ export async function previewRoutes(fastify: FastifyInstance) {
           preview: {
             id: previewId,
             status: "ready",
-            url: `http://localhost:3000`,
+            url: `http://localhost:3005`,
             buildLogs: ["Build completed successfully"],
           },
         })

@@ -13,7 +13,7 @@ MONGODB_URL=mongodb://localhost:27017/claw_api
 DB_NAME=claw_api
 
 # External Game Generation API
-EXTERNAL_GAME_API_URL=http://localhost:3000
+EXTERNAL_GAME_API_URL=http://localhost:3005
 
 # JWT Secret (change this in production!)
 JWT_SECRET=claw-api-super-secret-jwt-key-change-in-production

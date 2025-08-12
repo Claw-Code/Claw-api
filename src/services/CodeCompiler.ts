@@ -413,7 +413,7 @@ This is a generated Phaser.js game created by Claw API.
    node server.js
    \`\`\`
 
-2. Open http://localhost:3000 in your browser
+2. Open http://localhost:3005 in your browser
 
 ## Alternative (No server required)
 

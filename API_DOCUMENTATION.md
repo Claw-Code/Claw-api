@@ -290,7 +290,7 @@ Once connected to the stream URL, you'll receive events in this order:
 #### 5. Preview & Download
 \`\`\`javascript
 { "type": "preview_start", "content": "🚀 Launching live preview environment..." }
-{ "type": "preview_ready", "url": "http://localhost:3001", "buildLogs": ["Build completed"] }
+{ "type": "preview_ready", "url": "http://localhost:3005", "buildLogs": ["Build completed"] }
 { "type": "download_ready", "url": "/api/download/abc123" }
 \`\`\`
 
@@ -453,7 +453,7 @@ The final `complete` event contains a full `LLMResponse` object:
       ],
       "framework": "phaser.js",
       "language": "javascript",
-      "previewUrl": "http://localhost:3001",
+      "previewUrl": "http://localhost:3005",
       "downloadUrl": "/api/download/abc123"
     },
     "status": "completed",
