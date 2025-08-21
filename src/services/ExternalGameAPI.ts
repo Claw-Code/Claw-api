@@ -16,7 +16,7 @@ export class ExternalGameAPI {
       const requestBody = { prompt, subdomain }
       console.log(`📤 Sending request:`, requestBody)
 
-      const response = await fetch(`${this.baseUrl}/api/generate/simple`, {
+      const response = await fetch(`${this.baseUrl}/api/generate/simple2`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
