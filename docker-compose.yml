@@ -17,23 +17,23 @@ services:
       - claw-network
 
   # Claw API
-  api:
-    build: .
-    container_name: claw-api
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    environment:
-      NODE_ENV: production
-      PORT: 8000
-      MONGODB_URL: mongodb://admin:password123@mongodb:27017/claw_api?authSource=admin
-      DB_NAME: claw_api
-      EXTERNAL_GAME_API_URL: ${EXTERNAL_GAME_API_URL:-http://host.docker.internal:3000}
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key}
-    depends_on:
-      - mongodb
-    networks:
-      - claw-network
+  # api:
+  #   build: .
+  #   container_name: claw-api
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     NODE_ENV: production
+  #     PORT: 8000
+  #     MONGODB_URL: mongodb://admin:password123@mongodb:27017/claw_api?authSource=admin
+  #     DB_NAME: claw_api
+  #     EXTERNAL_GAME_API_URL: ${EXTERNAL_GAME_API_URL:-http://host.docker.internal:3000}
+  #     JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key}
+  #   depends_on:
+  #     - mongodb
+  #   networks:
+  #     - claw-network
 
 volumes:
   mongodb_data:
